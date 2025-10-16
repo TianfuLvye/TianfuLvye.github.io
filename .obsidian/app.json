@@ -1,1 +1,10 @@
-{}
+{
+  "useMarkdownLinks": true,
+  "attachmentFolderPath": "/assets/images",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "_posts",
+  "trashOption": "system",
+  "showUnsupportedFiles": false,
+  "newLinkFormat": "absolute",
+  "alwaysUpdateLinks": true
+}

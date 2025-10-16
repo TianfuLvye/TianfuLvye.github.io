@@ -1,3 +1,5 @@
 [
-  "janitor"
+  "janitor",
+  "obsidian-linter",
+  "obsidian-regex-pipeline"
 ]
