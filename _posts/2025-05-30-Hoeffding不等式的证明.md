@@ -1,5 +1,8 @@
 ---
 math: "true"
+tags:
+  - AI
+  - 数学
 ---
 
 ![](/assets/images/Pasted image 20250515185114.png)

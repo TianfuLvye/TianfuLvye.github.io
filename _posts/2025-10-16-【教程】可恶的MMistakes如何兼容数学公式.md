@@ -1,6 +1,8 @@
 ---
 tags:
   - 教程
+  - AI
+categories: 教程
 ---
 ## 第一步
 
