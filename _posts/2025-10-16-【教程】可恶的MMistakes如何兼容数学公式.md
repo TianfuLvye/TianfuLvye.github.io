@@ -4,6 +4,9 @@ tags:
   - AI
 categories: 教程
 ---
+
+研究了好久。心力交瘁
+
 ## 第一步
 
 `_includes/head/custom.html` 文件中加入 MathJax 脚本，如果没有这个文件或者文件夹，就新建一个

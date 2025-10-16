@@ -74,6 +74,12 @@ author:
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
       url: "hhttps://github.com/TianfuLvye"
+    - label: "Bilibili"
+      icon: "fab fa-fw fa-bilibili"
+      url: "https://space.bilibili.com/89279382"
+    - label: "Zhihu"
+      icon: "fab fa-fw fa-zhihu"
+      url: "https://www.zhihu.com/people/wo-shi-yige-cao-fang-kuai-23"
 
 footer:
   links:
