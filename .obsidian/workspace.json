@@ -168,16 +168,15 @@
       "command-palette:打开命令面板": false,
       "bases:创建新数据库": false,
       "janitor:Janitor: scan vault": false,
-      "random-note:开始漫游笔记": false,
       "obsidian-regex-pipeline:Regex Rulesets": false
     }
   },
   "active": "c280d51e4720080d",
   "lastOpenFiles": [
-    "_posts/2025-10-16-教程：图片应当如何插入.md",
-    "_posts/2025-10-12-测试.md",
-    "assets/images/Pasted.md",
     "_posts/2025-05-30-【笔记】信息学中的概率统计.md",
+    "_posts/2025-10-12-测试.md",
+    "_posts/2025-10-16-教程：图片应当如何插入.md",
+    "assets/images/Pasted.md",
     "_posts/2025-02-19-【笔记】深度学习笔记.md",
     "_posts/2025-05-30-卡方分布、指数分布还有伽马分布的关系.md",
     "_posts/2025-03-10-【笔记】全栈开发「笔记」.md",
