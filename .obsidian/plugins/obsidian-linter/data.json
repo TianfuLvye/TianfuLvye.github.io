@@ -196,7 +196,7 @@
       "enabled": false
     },
     "empty-line-around-math-blocks": {
-      "enabled": false
+      "enabled": true
     },
     "empty-line-around-tables": {
       "enabled": false
@@ -210,7 +210,7 @@
       "enabled": false
     },
     "move-math-block-indicators-to-their-own-line": {
-      "enabled": false
+      "enabled": true
     },
     "paragraph-blank-lines": {
       "enabled": true

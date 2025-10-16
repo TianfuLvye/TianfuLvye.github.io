@@ -12,17 +12,23 @@ math: "true"
 
 我们有 n 个独立的随机变量 $X_1, X_2, \ldots, X_n$，其中每个 $X_i$ 的取值范围在区间 $[a_i, b_i]$ 内。目标是证明：
 
-$$ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) \leq e^{-\frac{2\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2}} $$
+$$
+ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) \leq e^{-\frac{2\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2}} 
+$$
 
 ### 2. 第一步：引入指数函数和马尔科夫不等式
 
 为了控制尾部概率，我们引入指数函数和参数 $t > 0$：
 
-$$ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) = P\left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \geq e^{t\varepsilon} \right) $$
+$$
+ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) = P\left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \geq e^{t\varepsilon} \right) 
+$$
 
 根据马尔科夫不等式（对于非负随机变量 $Y$，$P(Y \geq c) \leq \frac{\mathbb{E} Y}{c}$），有：
 
-$$ P\left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \geq e^{t\varepsilon} \right) \leq e^{-t\varepsilon} \mathbb{E} \left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \right) $$
+$$
+ P\left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \geq e^{t\varepsilon} \right) \leq e^{-t\varepsilon} \mathbb{E} \left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \right) 
+$$
 
 这是证明中的第一个不等式。
 
@@ -30,7 +36,9 @@ $$ P\left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \geq e^{t\varepsilon} \righ
 
 由于 $X_i$ 是独立的，$X_i - \mathbb{E} X_i$ 也是独立的，因此指数函数的期望可以分解为乘积：
 
-$$ \mathbb{E} \left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \right) = \prod_{i=1}^n \mathbb{E} \left( e^{t(X_i - \mathbb{E} X_i)} \right) $$
+$$
+ \mathbb{E} \left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \right) = \prod_{i=1}^n \mathbb{E} \left( e^{t(X_i - \mathbb{E} X_i)} \right) 
+$$
 
 这是证明中的等式部分。
 
@@ -38,11 +46,15 @@ $$ \mathbb{E} \left( e^{t \sum_{i=1}^n (X_i - \mathbb{E} X_i)} \right) = \prod_{
 
 Hoeffding 引理指出，对于一个有界随机变量 $X$（取值范围为 $[a, b]$），其中心化后的矩生成函数满足：
 
-$$ \mathbb{E} \left( e^{t(X - \mathbb{E} X)} \right) \leq e^{\frac{t^2 (b - a)^2}{8}} $$
+$$
+ \mathbb{E} \left( e^{t(X - \mathbb{E} X)} \right) \leq e^{\frac{t^2 (b - a)^2}{8}} 
+$$
 
 将这一引理应用到每个 $X_i$ 上，得到：
 
-$$ \prod_{i=1}^n \mathbb{E} \left( e^{t(X_i - \mathbb{E} X_i)} \right) \leq \prod_{i=1}^n e^{\frac{t^2 (b_i - a_i)^2}{8}} = e^{\frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2} $$
+$$
+ \prod_{i=1}^n \mathbb{E} \left( e^{t(X_i - \mathbb{E} X_i)} \right) \leq \prod_{i=1}^n e^{\frac{t^2 (b_i - a_i)^2}{8}} = e^{\frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2} 
+$$
 
 这是证明中的第二个不等式。
 
@@ -50,29 +62,41 @@ $$ \prod_{i=1}^n \mathbb{E} \left( e^{t(X_i - \mathbb{E} X_i)} \right) \leq \pro
 
 将上述结果代入第一步的不等式：
 
-$$ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) \leq e^{-t\varepsilon} \cdot e^{\frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2} = e^{-t\varepsilon + \frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2} $$
+$$
+ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) \leq e^{-t\varepsilon} \cdot e^{\frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2} = e^{-t\varepsilon + \frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2} 
+$$
 
 ### 6. 第五步：优化参数 $t$
 
 为了最小化上界，选择 $t$ 使得指数部分最小化。令：
 
-$$ f(t) = -t\varepsilon + \frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2 $$
+$$
+ f(t) = -t\varepsilon + \frac{t^2}{8} \sum_{i=1}^n (b_i - a_i)^2 
+$$
 
 对 $t$ 求导并令导数为零：
 
-$$ f'(t) = -\varepsilon + \frac{t}{4} \sum_{i=1}^n (b_i - a_i)^2 = 0 $$
+$$
+ f'(t) = -\varepsilon + \frac{t}{4} \sum_{i=1}^n (b_i - a_i)^2 = 0 
+$$
 
 解得：
 
-$$ t = \frac{4\varepsilon}{\sum_{i=1}^n (b_i - a_i)^2} $$
+$$
+ t = \frac{4\varepsilon}{\sum_{i=1}^n (b_i - a_i)^2} 
+$$
 
 将 $t$ 代回 $f(t)$：
 
-$$ f(t) = -\frac{4\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2} + \frac{1}{8} \cdot \frac{16\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2} = -\frac{2\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2} $$
+$$
+ f(t) = -\frac{4\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2} + \frac{1}{8} \cdot \frac{16\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2} = -\frac{2\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2} 
+$$
 
 因此，最终的上界为：
 
-$$ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) \leq e^{-\frac{2\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2}} $$
+$$
+ P\left( \sum_{i=1}^n (X_i - \mathbb{E} X_i) \geq \varepsilon \right) \leq e^{-\frac{2\varepsilon^2}{\sum_{i=1}^n (b_i - a_i)^2}} 
+$$
 
 ### 7. 第六步：对称情况
 
