@@ -166,13 +166,15 @@
       "daily-notes:打开/创建今天的日记": false,
       "templates:插入模板": false,
       "command-palette:打开命令面板": false,
-      "bases:创建新数据库": false
+      "bases:创建新数据库": false,
+      "janitor:Janitor: scan vault": false
     }
   },
   "active": "f0dbc41d2ee11c86",
   "lastOpenFiles": [
-    "assets/images/bio-photo.png",
+    "assets/images/Snipaste_2025-10-16_14-01-36.png",
     "_posts/2025-10-16-Pic.md",
+    "assets/images/bio-photo.png",
     "assets/images/bio-photo.jpg",
     "_posts/2010-03-07-post-link.md",
     "_posts/2010-01-07-post-modified.md",
