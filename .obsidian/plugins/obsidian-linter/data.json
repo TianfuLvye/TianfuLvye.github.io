@@ -196,10 +196,10 @@
       "enabled": false
     },
     "empty-line-around-math-blocks": {
-      "enabled": true
+      "enabled": false
     },
     "empty-line-around-tables": {
-      "enabled": true
+      "enabled": false
     },
     "heading-blank-lines": {
       "enabled": false,
