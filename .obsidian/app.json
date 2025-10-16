@@ -6,5 +6,6 @@
   "trashOption": "system",
   "showUnsupportedFiles": false,
   "newLinkFormat": "absolute",
-  "alwaysUpdateLinks": true
+  "alwaysUpdateLinks": true,
+  "strictLineBreaks": false
 }
