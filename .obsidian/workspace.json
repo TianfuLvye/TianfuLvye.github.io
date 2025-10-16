@@ -173,6 +173,9 @@
   },
   "active": "c280d51e4720080d",
   "lastOpenFiles": [
+    "_includes/head/customs.html",
+    "_includes/head",
+    "_includes",
     "_posts/2025-10-12-测试.md",
     "_posts/2025-05-30-【笔记】信息学中的概率统计.md",
     "_posts/2025-10-16-教程：图片应当如何插入.md",
@@ -200,8 +203,6 @@
     "assets/images/演讲十佳初赛赛制汇总.pdf",
     "assets/images/校长推荐制小组汇报 (revised).pptx",
     "assets/images/校长推荐制小组汇报 (revised) 1.pptx",
-    "assets/images/同义替换-第一课资料.pdf",
-    "assets/images/04-machine-basics.pdf",
     "_posts/2025-05-30-Hoeffding不等式的证明.md",
     "_posts/2025-05-30-Gauss积分.md",
     "_posts/2025-05-30-Cramer-Rao 不等式.md",
