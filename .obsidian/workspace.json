@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "_posts/2025-05-30-Hoeffding不等式的证明.md",
+                "file": "_posts/2025-10-12-测试.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "2025-05-30-Hoeffding不等式的证明"
+              "title": "2025-10-12-测试"
             }
           }
         ]
@@ -173,20 +173,23 @@
   },
   "active": "c280d51e4720080d",
   "lastOpenFiles": [
+    "_posts/2025-10-16-教程：图片应当如何插入.md",
+    "_posts/2025-10-12-测试.md",
+    "_posts/2025-05-30-Hoeffding不等式的证明.md",
+    "_posts/2025-05-30-Gauss积分.md",
+    "_posts/2025-05-30-Cramer-Rao 不等式.md",
+    "_posts/2025-05-30-雅可比行列式与换元法.md",
+    "_posts/2025-05-30-卡方分布、指数分布还有伽马分布的关系.md",
+    "_posts/2025-05-30-换函数法.md",
+    "_posts/2025-05-30-【笔记】信息学中的概率统计.md",
+    "_posts/2025-03-10-【笔记】全栈开发「笔记」.md",
+    "_posts/2025-02-19-【笔记】深度学习笔记.md",
     "_includes/footer/custom.html",
     "_includes/footer",
     "_includes/head/customs.html",
     "_includes/head",
     "_includes",
-    "_posts/2025-10-12-测试.md",
-    "_posts/2025-05-30-【笔记】信息学中的概率统计.md",
-    "_posts/2025-10-16-教程：图片应当如何插入.md",
     "assets/images/Pasted.md",
-    "_posts/2025-02-19-【笔记】深度学习笔记.md",
-    "_posts/2025-05-30-卡方分布、指数分布还有伽马分布的关系.md",
-    "_posts/2025-03-10-【笔记】全栈开发「笔记」.md",
-    "_posts/2025-05-30-雅可比行列式与换元法.md",
-    "_posts/2025-05-30-换函数法.md",
     "assets/images/word_count.png",
     "assets/images/v2-ef35554bc0755309fd887f83eaa32390_1440w.webp",
     "assets/images/v2-e996e43c65e324433e0ab0da03be172e_1440w.webp",
@@ -202,10 +205,6 @@
     "assets/images/CV NeRF.pdf",
     "assets/images/招生案例研究.pdf",
     "assets/images/演讲十佳复赛赛制说明.pdf",
-    "assets/images/演讲十佳初赛赛制汇总.pdf",
-    "_posts/2025-05-30-Hoeffding不等式的证明.md",
-    "_posts/2025-05-30-Gauss积分.md",
-    "_posts/2025-05-30-Cramer-Rao 不等式.md",
     "_posts/Cheat Sheet.md",
     "_posts/2010-02-05-post-notice.md",
     "_posts/2010-01-07-post-modified.md",

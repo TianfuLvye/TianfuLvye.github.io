@@ -3,8 +3,8 @@ math: "true"
 ---
 
 
-![[Pasted image 20250515185114.png|500]]
-![[Pasted image 20250515185035.png|500]]
+![](/assets/images/Pasted image 20250515185114.png)
+![](/assets/images/Pasted image 20250515185035.png)
 
 这个证明展示了如何利用 Hoeffding 引理推导出 Hoeffding 不等式，用于控制独立有界随机变量和偏离其期望的概率。下面我们逐步解析这个证明：
 
