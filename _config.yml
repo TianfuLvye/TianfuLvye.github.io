@@ -73,13 +73,16 @@ author:
       url: "https://tianfulvye.github.io"
     - label: "GitHub"
       icon: "fab fa-fw fa-github"
-      url: "hhttps://github.com/TianfuLvye"
+      url: "https://github.com/TianfuLvye"
     - label: "Bilibili"
       icon: "fab fa-fw fa-bilibili"
       url: "https://space.bilibili.com/89279382"
     - label: "Zhihu"
       icon: "fab fa-fw fa-zhihu"
       url: "https://www.zhihu.com/people/wo-shi-yige-cao-fang-kuai-23"
+    - label: "Douyin"
+      icon: "fab fa-fw fa-tiktok"
+      url: "https://www.douyin.com/user/MS4wLjABAAAALzozKhkV168ennIb4IQH0vPPIYuMyWTBlrSSc2h_2_vBXTFqB1-IrysXj5tOuhvo"
 
 footer:
   links:
