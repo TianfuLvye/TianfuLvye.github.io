@@ -1,3 +1,6 @@
+---
+math: "true"
+---
 
 
 ![[Pasted image 20250515185114.png|500]]
