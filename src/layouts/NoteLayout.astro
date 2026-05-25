@@ -1,0 +1,35 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  title: string;
+  date: Date;
+  continentId: string;
+  summary?: string;
+  tags?: string[];
+}
+const { title, date, continentId, summary, tags = [] } = Astro.props;
+const dateStr = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+---
+<BaseLayout title={`${title} — atlas`}>
+  <article class="note-article">
+    <header class="note-header">
+      <a href="/" class="note-back">← back to the world</a>
+      <div class="note-meta">
+        <span class="note-continent">{continentId}</span>
+        <span class="note-sep">·</span>
+        <span class="note-date">{dateStr}</span>
+      </div>
+      <h1 class="note-title">{title}</h1>
+      {summary && <p class="note-summary">{summary}</p>}
+      {tags.length > 0 && (
+        <div class="note-tags">
+          {tags.map((t) => <span class="note-tag">#{t}</span>)}
+        </div>
+      )}
+    </header>
+    <div class="note-body">
+      <slot />
+    </div>
+  </article>
+</BaseLayout>
