@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ContinentData, NoteData, SortKey } from '../lib/types';
@@ -8,6 +8,27 @@ import { rngFor, rangeFrom } from '../lib/random';
 import { useWorld } from '../store';
 
 const MAP_SIZE = 18;
+
+/**
+ * drei Html 在 OrthographicCamera 下用 scale = zoom × distanceFactor。
+ * 固定 distanceFactor=6 会在 zoom=48 时得到 scale=288。按 zoom 反比补偿，使屏幕 scale ≈ multiplier。
+ */
+function useOrthoHtmlDistanceFactor(multiplier = 1) {
+  const camera = useThree((s) => s.camera);
+  const [factor, setFactor] = useState(() =>
+    camera instanceof THREE.OrthographicCamera
+      ? multiplier / camera.zoom
+      : multiplier,
+  );
+
+  useFrame(() => {
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
+    const next = multiplier / camera.zoom;
+    setFactor((prev) => (Math.abs(prev - next) > 1e-5 ? next : prev));
+  });
+
+  return factor;
+}
 
 interface Props {
   continent: ContinentData;
@@ -138,6 +159,7 @@ function Building({
 }: BuildingProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [hover, setHover] = useState(false);
+  const htmlDistanceFactor = useOrthoHtmlDistanceFactor(1);
 
   // 漂浮目标高度：排名越靠前 → 浮得越高（但还是基于位置稳定）
   const floatHeight = useMemo(() => {
@@ -234,7 +256,7 @@ function Building({
         <Html
           position={[0, -0.7, 0]}
           center
-          distanceFactor={6}
+          distanceFactor={htmlDistanceFactor}
           style={{ pointerEvents: 'none' }}
         >
           <div className="island-sign">{placement.note.title}</div>
@@ -246,7 +268,7 @@ function Building({
         <Html
           position={[0, placement.position[1] + placement.scale[1] / 2 + 0.4, 0]}
           center
-          distanceFactor={6}
+          distanceFactor={htmlDistanceFactor}
           style={{ pointerEvents: 'none' }}
         >
           <div className="building-label">{placement.note.title}</div>
