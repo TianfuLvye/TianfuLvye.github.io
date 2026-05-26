@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import type { WorldTree } from '../lib/types';
@@ -7,6 +7,16 @@ import { placeContinents } from '../lib/layout';
 import { useWorld } from '../store';
 
 const GLOBE_RADIUS = 2.4;
+
+/** 大陆外法线朝向相机时才可交互，避免背面穿透选中 */
+function continentFacesCamera(mesh: THREE.Mesh, camera: THREE.Camera): boolean {
+  const worldPos = new THREE.Vector3();
+  mesh.getWorldPosition(worldPos);
+  if (worldPos.lengthSq() < 1e-8) return false;
+  const outward = worldPos.clone().normalize();
+  const toCam = camera.position.clone().sub(worldPos).normalize();
+  return outward.dot(toCam) > 0;
+}
 
 interface Props {
   tree: WorldTree;
@@ -92,6 +102,23 @@ function Continent({
 }: ContinentProps) {
   const [hovered, setHovered] = useState(false);
   const meshRef = useRef<THREE.Mesh>(null);
+  const camera = useThree((s) => s.camera);
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const originalRaycast = mesh.raycast.bind(mesh);
+    mesh.raycast = (raycaster, intersects) => {
+      const buf: THREE.Intersection[] = [];
+      originalRaycast(raycaster, buf);
+      if (buf.length === 0) return;
+      if (!continentFacesCamera(mesh, camera)) return;
+      intersects.push(...buf);
+    };
+    return () => {
+      mesh.raycast = originalRaycast;
+    };
+  }, [placement.continent.id, camera]);
 
   // 让长方体的 +Y 面对齐表面外法线方向
   const quaternion = useMemo(() => {
