@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
@@ -7,6 +7,7 @@ import { placeContinents } from '../lib/layout';
 import { useWorld } from '../store';
 
 const GLOBE_RADIUS = 2.4;
+const DRAG_ROTATE_SPEED = 0.005;
 
 /** 大陆外法线朝向相机时才可交互，避免背面穿透选中 */
 function continentFacesCamera(mesh: THREE.Mesh, camera: THREE.Camera): boolean {
@@ -30,13 +31,70 @@ export default function Globe({ tree, onEnter }: Props) {
     [tree],
   );
   const groupRef = useRef<THREE.Group>(null);
+  const { gl, camera } = useThree();
+  const dragging = useRef(false);
+  const axisY = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+  const axisRight = useMemo(() => new THREE.Vector3(), []);
+  const quat = useMemo(() => new THREE.Quaternion(), []);
   const focused = useWorld((s) => s.focusedContinent);
   const focusContinent = useWorld((s) => s.focusContinent);
 
+  // 拖拽旋转地球（固定相机），避免 OrbitControls 在极点万向节锁
+  useEffect(() => {
+    const el = gl.domElement;
+
+    const applyDrag = (dx: number, dy: number) => {
+      const group = groupRef.current;
+      if (!group || (dx === 0 && dy === 0)) return;
+
+      // 转地球（非转相机）时符号与 OrbitControls 相反，取反以符合「抓住球拖动」的手感
+      quat.setFromAxisAngle(axisY, dx * DRAG_ROTATE_SPEED);
+      group.quaternion.premultiply(quat);
+
+      axisRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+      quat.setFromAxisAngle(axisRight, dy * DRAG_ROTATE_SPEED);
+      group.quaternion.premultiply(quat);
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      dragging.current = true;
+      el.setPointerCapture(e.pointerId);
+      el.style.cursor = 'grabbing';
+    };
+
+    const endDrag = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      if (el.hasPointerCapture(e.pointerId)) {
+        el.releasePointerCapture(e.pointerId);
+      }
+      el.style.cursor = '';
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      applyDrag(e.movementX, e.movementY);
+    };
+
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('pointermove', onPointerMove);
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointerup', endDrag);
+      el.removeEventListener('pointercancel', endDrag);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.style.cursor = '';
+    };
+  }, [gl, camera, axisY, axisRight, quat]);
+
   // 缓慢自转
   useFrame((_, dt) => {
-    if (groupRef.current && !focused) {
-      groupRef.current.rotation.y += dt * 0.05;
+    if (groupRef.current && !focused && !dragging.current) {
+      quat.setFromAxisAngle(axisY, dt * 0.05);
+      groupRef.current.quaternion.premultiply(quat);
     }
   });
 
@@ -75,11 +133,11 @@ export default function Globe({ tree, onEnter }: Props) {
       </group>
 
       <OrbitControls
+        enableRotate={false}
         enablePan={false}
         enableZoom={true}
         minDistance={4}
         maxDistance={9}
-        rotateSpeed={0.6}
       />
     </>
   );
