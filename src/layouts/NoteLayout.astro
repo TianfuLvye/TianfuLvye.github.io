@@ -14,7 +14,9 @@ const dateStr = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2,
 <BaseLayout title={`${title} — atlas`}>
   <article class="note-article">
     <header class="note-header">
-      <a href="/" class="note-back">← back to the world</a>
+      <p class="note-back">
+        <a href={`/?continent=${continentId}`} class="note-back-link">← back to the continent</a>/<a href="/" class="note-back-link">world</a>
+      </p>
       <div class="note-meta">
         <span class="note-continent">{continentId}</span>
         <span class="note-sep">·</span>

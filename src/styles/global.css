@@ -627,12 +627,15 @@ body:has(.note-article) {
   letter-spacing: 0.1em;
   text-transform: lowercase;
   color: var(--ink-soft);
-  text-decoration: none;
   display: inline-block;
   margin-bottom: 28px;
+}
+.note-back-link {
+  color: inherit;
+  text-decoration: none;
   transition: color 0.15s ease;
 }
-.note-back:hover {
+.note-back-link:hover {
   color: var(--crimson);
 }
 

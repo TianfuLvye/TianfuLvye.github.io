@@ -56,6 +56,14 @@ export default function World({ tree }: Props) {
     window.location.href = `/notes/${note.slug}`;
   }, []);
 
+  // 从笔记页「back to continent」进入时恢复大陆视图
+  useEffect(() => {
+    const continent = new URLSearchParams(window.location.search).get('continent');
+    if (!continent || !tree.some((c) => c.id === continent)) return;
+    enterMap(continent);
+    window.history.replaceState({}, '', '/');
+  }, [tree, enterMap]);
+
   // ESC 返回 globe
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
