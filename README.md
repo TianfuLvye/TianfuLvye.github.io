@@ -14,6 +14,19 @@
 
 字体来自 Google Fonts：Fraunces（display）/ Inter Tight（body）/ JetBrains Mono（meta）。
 
+## 笔记图片（Obsidian 语法）
+
+阅读页支持 Obsidian 图片嵌入，文件名可含空格：
+
+```markdown
+![[2026 1 23.jpg]]
+![[photo.png|图注说明]]
+```
+
+把所有图片放在 **`src/content/notes/attachments/`**（全库共用，文件名可含空格）。`attachments` 不会作为大陆出现在 3D 地图上。远程图片也可写完整 URL：`![[https://example.com/x.jpg]]`。
+
+缺失的本地图片会在正文中显示占位图（`public/images/image-missing.png`），并在构建/开发控制台输出警告；请确认文件名与 `![[...]]` 中完全一致（含空格与扩展名）。
+
 ## 开发
 
 ```bash
@@ -30,10 +43,12 @@ npm run preview      # 预览构建
 src/
 ├── content.config.ts        # content collection schema
 ├── content/notes/
-│   ├── travel/              # 大陆 1：3 篇
-│   ├── tech/                # 大陆 2：3 篇
-│   ├── thoughts/            # 大陆 3：2 篇
-│   └── journal/             # 大陆 4：2 篇
+│   ├── attachments/         # 全库图片（Obsidian ![[...]]，不参与 3D 地图）
+│   ├── travel/              # 大陆：笔记文件夹
+│   ├── tech/
+│   ├── thoughts/
+│   ├── journal/
+│   └── test/                # 例：picture test.md
 ├── components/
 │   ├── World.tsx            # 总入口：相机 / 视图状态 / 转场
 │   ├── Globe.tsx            # 3D 地球 + 大陆长方体
