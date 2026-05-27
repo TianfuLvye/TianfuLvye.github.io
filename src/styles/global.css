@@ -761,6 +761,26 @@ body:has(.note-article) {
   text-underline-offset: 3px;
 }
 
+.note-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.6em auto;
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px var(--rule-soft),
+    0 8px 24px rgba(28, 20, 16, 0.12);
+}
+
+.note-body img[alt^='Missing image:'] {
+  max-height: 14rem;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.9;
+  box-shadow: none;
+  border: 1px dashed var(--rule);
+}
+
 /* ============================================================
    Responsive — collapse panels at narrow widths
    ============================================================ */
