@@ -21,6 +21,7 @@
 ```markdown
 ![[2026 1 23.jpg]]
 ![[photo.png|图注说明]]
+![[photo.png|150]]   # 宽度 150px
 ```
 
 把所有图片放在 **`src/content/notes/attachments/`**（全库共用，文件名可含空格）。`attachments` 不会作为大陆出现在 3D 地图上。远程图片也可写完整 URL：`![[https://example.com/x.jpg]]`。

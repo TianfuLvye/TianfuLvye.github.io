@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { PhrasingContent, Root, Text } from 'mdast';
+import type { Image, PhrasingContent, Root, Text } from 'mdast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 import {
@@ -8,8 +8,10 @@ import {
   sharedAttachmentsDir,
 } from './content-paths';
 
-/** Obsidian embed: ![[file.jpg]] or ![[file.jpg|alt text]] or ![[file.jpg|300]] (width, alt omitted) */
+/** Obsidian embed: ![[file.jpg]] or ![[file.jpg|alt text]] or ![[file.jpg|300]] (width in px) */
 const OBSIDIAN_IMAGE_RE = /!\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+
+const PIPE_WIDTH_RE = /^\d+(\.\d+)?$/;
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'];
 
@@ -49,12 +51,39 @@ function resolveImageUrl(markdownDir: string, target: string): string | null {
   return null;
 }
 
-function pipeToAlt(pipe: string | undefined, target: string): string {
+function parsePipe(
+  pipe: string | undefined,
+  target: string,
+): { alt: string; widthPx?: number } {
   const p = pipe?.trim();
-  if (!p || /^\d+(\.\d+)?$/.test(p)) {
-    return path.basename(target, path.extname(target));
+  if (!p) {
+    return { alt: path.basename(target, path.extname(target)) };
   }
-  return p;
+  if (PIPE_WIDTH_RE.test(p)) {
+    const widthPx = Number(p);
+    return {
+      alt: path.basename(target, path.extname(target)),
+      widthPx: widthPx > 0 ? widthPx : undefined,
+    };
+  }
+  return { alt: p };
+}
+
+function buildImageNode(url: string, alt: string, widthPx?: number): Image {
+  const node: Image = {
+    type: 'image',
+    url,
+    alt,
+    title: null,
+  };
+  if (widthPx != null) {
+    node.data = {
+      hProperties: {
+        style: `width:${widthPx}px;max-width:100%;height:auto;`,
+      },
+    };
+  }
+  return node;
 }
 
 function warnMissingImage(
@@ -90,23 +119,16 @@ function expandObsidianImages(
       nodes.push({ type: 'text', value: text.slice(lastIndex, match.index) });
     }
     const target = match[1];
+    const { alt, widthPx } = parsePipe(match[2], target);
     const url = resolveImageUrl(markdownDir, target);
 
     if (url) {
-      nodes.push({
-        type: 'image',
-        url,
-        alt: pipeToAlt(match[2], target),
-        title: null,
-      });
+      nodes.push(buildImageNode(url, alt, widthPx));
     } else {
       warnMissingImage(notePath, target, attachmentsDir);
-      nodes.push({
-        type: 'image',
-        url: MISSING_IMAGE_SRC,
-        alt: `Missing image: ${target.trim()}`,
-        title: target.trim(),
-      });
+      nodes.push(
+        buildImageNode(MISSING_IMAGE_SRC, `Missing image: ${target.trim()}`, widthPx),
+      );
     }
 
     lastIndex = match.index + match[0].length;
@@ -123,6 +145,7 @@ function expandObsidianImages(
  * Turn Obsidian image embeds `![[file name.jpg]]` into standard mdast images.
  * Files resolve from `src/content/notes/attachments/` (shared across all notes).
  * Missing local files render as a placeholder and log a build warning.
+ * A numeric pipe value sets width in pixels, e.g. `![[photo.png|150]]`.
  */
 export const remarkObsidianImages: Plugin<[], Root> = () => (tree, file) => {
   const markdownDir = file.path
