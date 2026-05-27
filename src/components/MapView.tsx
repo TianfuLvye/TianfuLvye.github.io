@@ -6,6 +6,7 @@ import type { ContinentData, NoteData, SortKey } from '../lib/types';
 import { placeBuildings, type BuildingPlacement } from '../lib/layout';
 import { rngFor, rangeFrom } from '../lib/random';
 import { useWorld } from '../store';
+import TagBridgePaths from './TagBridgePaths';
 
 const MAP_SIZE = 18;
 
@@ -44,6 +45,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
   const hoveredId = useWorld((s) => s.hoveredNoteId);
   const selectNote = useWorld((s) => s.selectNote);
   const selectedNoteId = useWorld((s) => s.selectedNote?.id ?? null);
+  const showTagPaths = useWorld((s) => s.showTagPaths);
 
   // 根据 sortKey 排序，决定每个 note 的"漂浮顺序"
   const sortRank = useMemo(() => {
@@ -107,6 +109,13 @@ export default function MapView({ continent, onOpenNote }: Props) {
 
       {/* 一些装饰性的小树 / 灌木 */}
       <Decorations continentId={continent.id} mapSize={MAP_SIZE} />
+
+      {showTagPaths && continent.tagBridges.length > 0 && (
+        <TagBridgePaths
+          bridges={continent.tagBridges}
+          buildings={buildings}
+        />
+      )}
 
       {/* 建筑物 */}
       {buildings.map((b) => (

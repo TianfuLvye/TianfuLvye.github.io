@@ -359,6 +359,21 @@ button {
   border-color: var(--ink);
 }
 
+.tag-paths-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tag-paths-hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
 .file-list {
   list-style: none;
   padding: 0;
