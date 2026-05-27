@@ -2,6 +2,8 @@
 interface Props {
   title?: string;
 }
+import 'katex/dist/katex.min.css';
+
 const { title = 'An atlas of notes' } = Astro.props;
 ---
 <!doctype html>

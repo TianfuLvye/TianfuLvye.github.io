@@ -708,6 +708,17 @@ body:has(.note-article) {
   margin: 0 0 1.2em;
 }
 
+.note-body .katex-display {
+  margin: 1.4em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Keep KaTeX on its own Computer Modern–style fonts, not body sans-serif */
+.note-body .katex {
+  font-size: 1.05em;
+}
+
 .note-body p::first-letter {
   /* subtle initial — only on first para handled via :first-of-type */
 }

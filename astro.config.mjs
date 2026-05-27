@@ -1,5 +1,7 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
+import rehypeKatex from 'rehype-katex';
+import remarkMath from 'remark-math';
 import { remarkObsidianImages } from './src/lib/remark-obsidian-images.ts';
 import { remarkObsidianWikilinks } from './src/lib/remark-obsidian-wikilinks.ts';
 
@@ -7,7 +9,8 @@ import { remarkObsidianWikilinks } from './src/lib/remark-obsidian-wikilinks.ts'
 export default defineConfig({
   integrations: [react()],
   markdown: {
-    remarkPlugins: [remarkObsidianImages, remarkObsidianWikilinks],
+    remarkPlugins: [remarkObsidianImages, remarkObsidianWikilinks, remarkMath],
+    rehypePlugins: [rehypeKatex],
   },
   vite: {
     ssr: {
