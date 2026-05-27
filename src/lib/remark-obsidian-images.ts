@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Image, PhrasingContent, Root, Text } from 'mdast';
+import type { Image, PhrasingContent, Root, RootContent, Text } from 'mdast';
 import type { Plugin } from 'unified';
 import { visit } from 'unist-util-visit';
 import {
@@ -8,14 +8,15 @@ import {
   sharedAttachmentsDir,
 } from './content-paths';
 
-/** Obsidian embed: ![[file.jpg]] or ![[file.jpg|alt text]] or ![[file.jpg|300]] (width in px) */
-const OBSIDIAN_IMAGE_RE = /!\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+/** Obsidian embed: ![[file.jpg]] or ![[file.jpg|alt]] or ![[file.jpg|300]] (width px) */
+const OBSIDIAN_EMBED_RE = /!\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 
 const PIPE_WIDTH_RE = /^\d+(\.\d+)?$/;
+const PDF_HEIGHT_RE = /^height=(\d+(?:\.\d+)?)$/i;
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'];
+const PDF_EXTENSION = '.pdf';
 
-/** Static placeholder when a local attachment is missing (place file at public/images/image-missing.png). */
 export const MISSING_IMAGE_SRC = '/images/image-missing.png';
 
 function toPosixRelative(fromDir: string, absolute: string): string {
@@ -24,31 +25,86 @@ function toPosixRelative(fromDir: string, absolute: string): string {
   return posix.startsWith('.') ? posix : `./${posix}`;
 }
 
-function resolveImageUrl(markdownDir: string, target: string): string | null {
-  const trimmed = target.trim();
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+function splitTarget(raw: string): { filePart: string; fragment: string | null } {
+  const hashIdx = raw.indexOf('#');
+  if (hashIdx === -1) return { filePart: raw.trim(), fragment: null };
+  return {
+    filePart: raw.slice(0, hashIdx).trim(),
+    fragment: raw.slice(hashIdx + 1).trim() || null,
+  };
+}
 
+function attachmentBasename(filePart: string): string {
+  const normalized = filePart.replace(/\\/g, '/');
+  const m = normalized.match(/(?:^|\/)(?:\.\.\/)*attachments\/(.+)$/i);
+  return m ? m[1] : path.basename(filePart);
+}
+
+function resolveEmbedFile(
+  markdownDir: string,
+  filePart: string,
+): { absolute: string; kind: 'image' | 'pdf' } | null {
   const attachmentsDir = sharedAttachmentsDir(NOTES_CONTENT_ROOT);
+  const baseName = attachmentBasename(filePart);
+  const ext = path.extname(baseName).toLowerCase();
+  const isPdf = ext === PDF_EXTENSION;
 
   const candidates: string[] = [];
   const add = (abs: string) => {
-    if (!candidates.includes(abs)) candidates.push(abs);
+    const resolved = path.normalize(abs);
+    if (!candidates.includes(resolved)) candidates.push(resolved);
   };
 
-  add(path.join(attachmentsDir, trimmed));
-  if (!path.extname(trimmed)) {
-    for (const ext of IMAGE_EXTENSIONS) {
-      add(path.join(attachmentsDir, trimmed + ext));
+  add(path.resolve(markdownDir, filePart));
+  add(path.join(attachmentsDir, filePart));
+  add(path.join(attachmentsDir, baseName));
+
+  if (!ext) {
+    const exts = isPdf ? [PDF_EXTENSION] : IMAGE_EXTENSIONS;
+    for (const tryExt of exts) {
+      add(path.join(attachmentsDir, baseName + tryExt));
     }
   }
 
   for (const abs of candidates) {
     if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
-      return toPosixRelative(markdownDir, abs);
+      const kind = path.extname(abs).toLowerCase() === PDF_EXTENSION ? 'pdf' : 'image';
+      return { absolute: abs, kind };
     }
   }
 
   return null;
+}
+
+function toPublicAttachmentUrl(absolute: string): string {
+  const attachmentsDir = sharedAttachmentsDir(NOTES_CONTENT_ROOT);
+  const rel = path.relative(attachmentsDir, absolute);
+  const posix = rel.split(path.sep).join('/');
+  return `/notes-attachments/${encodeURI(posix)}`;
+}
+
+function resolveEmbedUrl(markdownDir: string, rawTarget: string): {
+  url: string;
+  kind: 'image' | 'pdf';
+} | null {
+  const trimmed = rawTarget.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    const kind = trimmed.toLowerCase().includes('.pdf') ? 'pdf' : 'image';
+    return { url: trimmed, kind };
+  }
+
+  const { filePart } = splitTarget(trimmed);
+  const resolved = resolveEmbedFile(markdownDir, filePart);
+  if (!resolved) return null;
+
+  if (resolved.kind === 'pdf') {
+    return { url: toPublicAttachmentUrl(resolved.absolute), kind: 'pdf' };
+  }
+
+  return {
+    url: toPosixRelative(markdownDir, resolved.absolute),
+    kind: 'image',
+  };
 }
 
 function parsePipe(
@@ -69,6 +125,14 @@ function parsePipe(
   return { alt: p };
 }
 
+function parsePdfHeight(fragment: string | null): number | undefined {
+  if (!fragment) return undefined;
+  const m = fragment.match(PDF_HEIGHT_RE);
+  if (!m) return undefined;
+  const h = Number(m[1]);
+  return h > 0 ? h : undefined;
+}
+
 function buildImageNode(url: string, alt: string, widthPx?: number): Image {
   const node: Image = {
     type: 'image',
@@ -86,7 +150,21 @@ function buildImageNode(url: string, alt: string, widthPx?: number): Image {
   return node;
 }
 
-function warnMissingImage(
+function buildPdfNode(url: string, title: string, heightPx?: number): RootContent {
+  const height = heightPx ?? 480;
+  const safeTitle = title.replace(/"/g, '&quot;');
+  return {
+    type: 'html',
+    value:
+      `<div class="note-pdf-embed">` +
+      `<embed src="${url}" type="application/pdf" title="${safeTitle}" ` +
+      `height="${height}" class="note-pdf-embed__frame" />` +
+      `<a class="note-pdf-embed__link" href="${url}" target="_blank" rel="noopener">Open PDF: ${safeTitle}</a>` +
+      `</div>`,
+  };
+}
+
+function warnMissingEmbed(
   notePath: string | undefined,
   target: string,
   attachmentsDir: string,
@@ -95,39 +173,44 @@ function warnMissingImage(
     ? path.relative(process.cwd(), notePath)
     : '(unknown note)';
   console.warn(
-    `[remark-obsidian-images] Missing image ![[${target.trim()}]] in ${note}\n` +
+    `[remark-obsidian-images] Missing embed ![[${target.trim()}]] in ${note}\n` +
       `  Place the file in: ${attachmentsDir}`,
   );
 }
 
-function expandObsidianImages(
+function expandObsidianEmbeds(
   text: string,
   markdownDir: string,
   notePath: string | undefined,
-): PhrasingContent[] | null {
-  OBSIDIAN_IMAGE_RE.lastIndex = 0;
-  if (!OBSIDIAN_IMAGE_RE.test(text)) return null;
+): (PhrasingContent | RootContent)[] | null {
+  OBSIDIAN_EMBED_RE.lastIndex = 0;
+  if (!OBSIDIAN_EMBED_RE.test(text)) return null;
 
-  OBSIDIAN_IMAGE_RE.lastIndex = 0;
-  const nodes: PhrasingContent[] = [];
+  OBSIDIAN_EMBED_RE.lastIndex = 0;
+  const nodes: (PhrasingContent | RootContent)[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   const attachmentsDir = sharedAttachmentsDir(NOTES_CONTENT_ROOT);
 
-  while ((match = OBSIDIAN_IMAGE_RE.exec(text)) !== null) {
+  while ((match = OBSIDIAN_EMBED_RE.exec(text)) !== null) {
     if (match.index > lastIndex) {
       nodes.push({ type: 'text', value: text.slice(lastIndex, match.index) });
     }
-    const target = match[1];
-    const { alt, widthPx } = parsePipe(match[2], target);
-    const url = resolveImageUrl(markdownDir, target);
 
-    if (url) {
-      nodes.push(buildImageNode(url, alt, widthPx));
+    const rawTarget = match[1];
+    const { fragment } = splitTarget(rawTarget);
+    const { alt, widthPx } = parsePipe(match[2], rawTarget);
+    const resolved = resolveEmbedUrl(markdownDir, rawTarget);
+
+    if (resolved?.kind === 'pdf') {
+      const pdfHeight = parsePdfHeight(fragment);
+      nodes.push(buildPdfNode(resolved.url, alt, pdfHeight));
+    } else if (resolved?.kind === 'image') {
+      nodes.push(buildImageNode(resolved.url, alt, widthPx));
     } else {
-      warnMissingImage(notePath, target, attachmentsDir);
+      warnMissingEmbed(notePath, rawTarget, attachmentsDir);
       nodes.push(
-        buildImageNode(MISSING_IMAGE_SRC, `Missing image: ${target.trim()}`, widthPx),
+        buildImageNode(MISSING_IMAGE_SRC, `Missing image: ${rawTarget.trim()}`, widthPx),
       );
     }
 
@@ -142,10 +225,8 @@ function expandObsidianImages(
 }
 
 /**
- * Turn Obsidian image embeds `![[file name.jpg]]` into standard mdast images.
- * Files resolve from `src/content/notes/attachments/` (shared across all notes).
- * Missing local files render as a placeholder and log a build warning.
- * A numeric pipe value sets width in pixels, e.g. `![[photo.png|150]]`.
+ * Obsidian embeds `![[...]]` → images or PDF viewers.
+ * Resolves relative paths, `../attachments/...`, and shared `attachments/` folder.
  */
 export const remarkObsidianImages: Plugin<[], Root> = () => (tree, file) => {
   const markdownDir = file.path
@@ -154,8 +235,12 @@ export const remarkObsidianImages: Plugin<[], Root> = () => (tree, file) => {
 
   visit(tree, 'text', (node: Text, index, parent) => {
     if (parent == null || index == null) return;
-    const expanded = expandObsidianImages(node.value, markdownDir, file.path);
+    const expanded = expandObsidianEmbeds(node.value, markdownDir, file.path);
     if (!expanded) return;
-    (parent.children as PhrasingContent[]).splice(index, 1, ...expanded);
+    (parent.children as (PhrasingContent | RootContent)[]).splice(
+      index,
+      1,
+      ...expanded,
+    );
   });
 };

@@ -1,5 +1,6 @@
 import type { CollectionEntry } from 'astro:content';
 import { RESERVED_NOTE_FOLDERS } from './content-paths';
+import { resolveNoteDate, resolveNoteTitle } from './note-metadata';
 import type { ContinentData, NoteData, WorldTree } from './types';
 
 function prettify(folder: string): string {
@@ -23,9 +24,9 @@ export function buildWorldTree(entries: CollectionEntry<'notes'>[]): WorldTree {
     const note: NoteData = {
       id: entry.id,
       slug: entry.id,
-      title: entry.data.title,
+      title: resolveNoteTitle(entry),
       size: body.length,
-      date: entry.data.date.toISOString(),
+      date: resolveNoteDate(entry).toISOString(),
       summary: entry.data.summary,
       tags: entry.data.tags ?? [],
       continentId,

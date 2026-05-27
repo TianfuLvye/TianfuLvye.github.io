@@ -781,6 +781,26 @@ body:has(.note-article) {
   border: 1px dashed var(--rule);
 }
 
+.note-pdf-embed {
+  margin: 1.6em 0;
+}
+
+.note-pdf-embed__frame {
+  display: block;
+  width: 100%;
+  min-height: 12rem;
+  border: 1px solid var(--rule-soft);
+  border-radius: 2px;
+  background: var(--paper);
+}
+
+.note-pdf-embed__link {
+  display: inline-block;
+  margin-top: 0.5em;
+  font-family: var(--font-meta);
+  font-size: 0.85rem;
+}
+
 /* ============================================================
    Responsive — collapse panels at narrow widths
    ============================================================ */

@@ -1,6 +1,7 @@
 # build output
 dist/
 .astro/
+public/notes-attachments/
 
 # dependencies
 node_modules/

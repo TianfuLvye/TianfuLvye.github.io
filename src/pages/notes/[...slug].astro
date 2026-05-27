@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import NoteLayout from '../../layouts/NoteLayout.astro';
+import { resolveNoteDate, resolveNoteTitle } from '../../lib/note-metadata';
 
 export async function getStaticPaths() {
   const notes = await getCollection('notes');
@@ -11,12 +12,14 @@ export async function getStaticPaths() {
 }
 
 const { note } = Astro.props;
+const title = resolveNoteTitle(note);
+const date = resolveNoteDate(note);
 const { Content } = await render(note);
 const continentId = note.id.split('/')[0];
 ---
 <NoteLayout
-  title={note.data.title}
-  date={note.data.date}
+  title={title}
+  date={date}
   continentId={continentId}
   summary={note.data.summary}
   tags={note.data.tags ?? []}

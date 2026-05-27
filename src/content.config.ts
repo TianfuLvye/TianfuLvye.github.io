@@ -4,8 +4,8 @@ import { glob } from 'astro/loaders';
 const notes = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/notes' }),
   schema: z.object({
-    title: z.string(),
-    date: z.coerce.date(),
+    title: z.string().optional(),
+    date: z.coerce.date().optional(),
     summary: z.string().optional(),
     tags: z.array(z.string()).optional(),
   }),
