@@ -8,6 +8,11 @@ import type { DecorationId } from '../config/decoration-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
 import { placeBuildings, type BuildingPlacement } from '../lib/layout';
 import {
+  BUILDING_FOOTPRINT_SCALE,
+  MAP_CAMERA_ZOOM,
+  MAP_SIZE,
+} from '../lib/map-config';
+import {
   isNearBridgeCorridor,
   sampleBridgeCorridor,
 } from '../lib/plank-bridge';
@@ -18,8 +23,6 @@ import GlTFModel from './GlTFModel';
 import DecorationModel from './DecorationModel';
 import MapModelPreload from './MapModelPreload';
 import TagBridgePaths from './TagBridgePaths';
-
-const MAP_SIZE = 18;
 
 /**
  * drei Html 在 OrthographicCamera 下用 scale = zoom × distanceFactor。
@@ -85,8 +88,12 @@ export default function MapView({ continent, onOpenNote }: Props) {
       <MapModelPreload buildings={buildings} />
       <OrthographicCamera
         makeDefault
-        zoom={48}
-        position={[14, 14, 14]}
+        zoom={MAP_CAMERA_ZOOM}
+        position={[
+          MAP_SIZE * 0.5,
+          MAP_SIZE * 0.5,
+          MAP_SIZE * 0.5,
+        ]}
         near={0.1}
         far={100}
       />
@@ -227,7 +234,7 @@ function Building({
 
   const emphasize = hover || isHovered || isSelected;
   const buildingDef = getBuilding(placement.modelId);
-  const labelLift = placement.scale[1] * 0.55 + 0.35;
+  const labelLift = placement.scale[0] * 0.55 + 0.35;
 
   if (!buildingDef) return null;
 
@@ -258,8 +265,9 @@ function Building({
       >
         <GlTFModel
           url={buildingDef.url}
-          footprint={buildingDef.footprint}
+          footprint={buildingDef.footprint * BUILDING_FOOTPRINT_SCALE}
           scale={placement.scale}
+          uniformScale
           yOffset={buildingDef.yOffset}
           emphasized={emphasize}
         />
@@ -356,7 +364,7 @@ function Decorations({
       rotation: number;
     }> = [];
     let attempts = 0;
-    const target = 40;
+    const target = Math.round(40 * (mapSize / 18));
     while (arr.length < target && attempts < 320) {
       attempts++;
       const x = rangeFrom(rng, -half + 0.5, half - 0.5);

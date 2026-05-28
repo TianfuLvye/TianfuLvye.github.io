@@ -1,3 +1,7 @@
+import {
+  BUILDING_EDGE_MARGIN,
+  BUILDING_MIN_SPACING,
+} from './map-config';
 import { pickBuildingModel } from './pick-building-model';
 import { rngFor, rangeFrom } from './random';
 import type { ContinentData, NoteData } from './types';
@@ -76,7 +80,7 @@ export interface BuildingPlacement {
   note: NoteData;
   /** 平面上 (x, z) 位置；y 高度由 height 决定 */
   position: [number, number, number];
-  /** 长宽高 */
+  /** 均匀缩放 [s, s, s]（保持模型原始比例） */
   scale: [number, number, number];
   /** 颜色（HSL hue） */
   hue: number;
@@ -97,6 +101,8 @@ export function placeBuildings(
   mapSize: number,
 ): BuildingPlacement[] {
   const half = mapSize / 2;
+  const margin = BUILDING_EDGE_MARGIN;
+  const minSpacing = BUILDING_MIN_SPACING;
   const placed: BuildingPlacement[] = [];
 
   for (const note of notes) {
@@ -104,29 +110,28 @@ export function placeBuildings(
 
     // 尝试找一个不和已有建筑太近的位置（简单的拒绝采样）
     let pos: [number, number] = [0, 0];
-    for (let attempt = 0; attempt < 40; attempt++) {
-      const x = rangeFrom(rng, -half + 1.5, half - 1.5);
-      const z = rangeFrom(rng, -half + 1.5, half - 1.5);
+    for (let attempt = 0; attempt < 48; attempt++) {
+      const x = rangeFrom(rng, -half + margin, half - margin);
+      const z = rangeFrom(rng, -half + margin, half - margin);
       const tooClose = placed.some(
-        (p) => Math.hypot(p.position[0] - x, p.position[2] - z) < 1.5,
+        (p) =>
+          Math.hypot(p.position[0] - x, p.position[2] - z) < minSpacing,
       );
       if (!tooClose) {
         pos = [x, z];
         break;
       }
-      if (attempt === 39) pos = [x, z];
+      if (attempt === 47) pos = [x, z];
     }
 
-    // 体量基于文件大小，log 压缩
+    // 体量基于文件大小（均匀缩放，保持 GLB 原始长宽高比）
     const k = Math.log10(note.size + 50) / 4;
-    const w = 0.45 + rng() * 0.35;
-    const d = 0.45 + rng() * 0.35;
-    const h = 0.5 + k * 2.2 + rng() * 0.3;
+    const s = 0.85 + k * 0.55 + rng() * 0.2;
 
     placed.push({
       note,
-      position: [pos[0], h / 2, pos[1]],
-      scale: [w, h, d],
+      position: [pos[0], 0, pos[1]],
+      scale: [s, s, s],
       hue: rng() * 360,
       roof: rng(),
       rotation: rng() * Math.PI * 2,

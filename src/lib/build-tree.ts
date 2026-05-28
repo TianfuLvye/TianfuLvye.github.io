@@ -1,11 +1,10 @@
 import type { CollectionEntry } from 'astro:content';
 import { RESERVED_NOTE_FOLDERS } from './content-paths';
 import { placeBuildings } from './layout';
+import { MAP_SIZE } from './map-config';
 import { resolveNoteDate, resolveNoteTitle } from './note-metadata';
 import { buildTagBridges } from './tag-bridges';
 import type { ContinentData, NoteData, WorldTree } from './types';
-
-const MAP_SIZE = 18;
 
 function prettify(folder: string): string {
   return folder.charAt(0).toUpperCase() + folder.slice(1);
