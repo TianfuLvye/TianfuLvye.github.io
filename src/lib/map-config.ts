@@ -34,6 +34,9 @@ export const DECOR_FENCE_SEGMENT_SPACING = 0.45;
 /** Outward offset from building edge to fence path. */
 export const DECOR_FENCE_INSET = 0.35;
 
+/** Half length of one fence segment along its tangent (world units). */
+export const DECOR_FENCE_HALF_LENGTH = 0.28;
+
 /** Tree grove count baseline at MAP_SIZE = 18. */
 export const DECOR_TREE_GROVE_DENSITY = 3;
 

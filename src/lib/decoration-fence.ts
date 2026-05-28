@@ -1,4 +1,5 @@
 import {
+  DECOR_FENCE_HALF_LENGTH,
   DECOR_FENCE_INSET,
   DECOR_FENCE_SEGMENT_SPACING,
 } from './map-config';
@@ -25,16 +26,9 @@ function localToWorld(
   return [bx + lx * cos + lz * sin, bz + -lx * sin + lz * cos];
 }
 
-function worldTangentRotation(
-  rotation: number,
-  localDx: number,
-  localDz: number,
-): number {
-  const cos = Math.cos(rotation);
-  const sin = Math.sin(rotation);
-  const worldDx = localDx * cos + localDz * sin;
-  const worldDz = -localDx * sin + localDz * cos;
-  return Math.atan2(worldDx, worldDz);
+function alignFenceRotation(worldDx: number, worldDz: number): number {
+  // Fence GLB long axis is local +X; rotate so +X aligns with path tangent.
+  return Math.atan2(-worldDz, worldDx);
 }
 
 function pushFenceSegment(
@@ -72,17 +66,36 @@ function layoutSquareFence(
     { x0: -halfSize, z0: halfSize, x1: -halfSize, z1: -halfSize },
   ];
 
+  const prevSide = (s: number) => (s + 3) % 4;
+  const nextSide = (s: number) => (s + 1) % 4;
+  const halfLen = DECOR_FENCE_HALF_LENGTH;
+
   for (let s = 0; s < 4; s++) {
     if (s === gapSide) continue;
     const side = sides[s];
     const dx = side.x1 - side.x0;
     const dz = side.z1 - side.z0;
     const len = Math.hypot(dx, dz);
-    const steps = Math.max(1, Math.floor(len / spacing));
-    const tangentRot = worldTangentRotation(rotation, dx, dz);
+    if (len <= halfLen * 2) continue;
 
-    for (let i = 0; i <= steps; i++) {
-      const t = steps === 0 ? 0.5 : i / steps;
+    const startShared = prevSide(s) !== gapSide;
+    const endShared = nextSide(s) !== gapSide;
+    const startInset = startShared ? halfLen : halfLen * 0.35;
+    const endInset = endShared ? halfLen : halfLen * 0.35;
+    const tStart = startInset / len;
+    const tEnd = 1 - endInset / len;
+    if (tEnd <= tStart) continue;
+
+    const innerLen = len * (tEnd - tStart);
+    const steps = Math.max(1, Math.floor(innerLen / spacing));
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    const worldDx = dx * cos + dz * sin;
+    const worldDz = -dx * sin + dz * cos;
+    const tangentRot = alignFenceRotation(worldDx, worldDz);
+
+    for (let i = 0; i < steps; i++) {
+      const t = tStart + ((i + 0.5) / steps) * (tEnd - tStart);
       const lx = side.x0 + dx * t;
       const lz = side.z0 + dz * t;
       const [wx, wz] = localToWorld(bx, bz, rotation, lx, lz);
@@ -110,7 +123,9 @@ function layoutArcFence(
     const angle = gapStart + i * stepAngle;
     const x = bx + Math.sin(angle) * radius;
     const z = bz + Math.cos(angle) * radius;
-    const tangentRot = angle + Math.PI / 2;
+    const worldDx = Math.cos(angle);
+    const worldDz = -Math.sin(angle);
+    const tangentRot = alignFenceRotation(worldDx, worldDz);
     pushFenceSegment(out, x, z, tangentRot);
   }
 
