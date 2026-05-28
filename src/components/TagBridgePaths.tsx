@@ -22,6 +22,7 @@ import {
   bridgeCurve,
   buildBridgeMeshSpec,
   buildPlankGeometry,
+  pickPlankIndexAtPoint,
   WOOD_DARK,
   type BridgeMeshSpec,
   type PlankSpec,
@@ -161,10 +162,8 @@ function AnimatedPlank({
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { phase, riseStartMs, riseSchedule } = useTagBridgeAnimation();
-  const { hoveredBridgeKey, hoveredPlankIndex, interactive, setHover } =
-    useBridgeInteraction();
+  const { hoveredBridgeKey, hoveredPlankIndex } = useBridgeInteraction();
   const selectedBridgeKey = useWorld((s) => s.selectedTagBridgeKey);
-  const selectTagBridge = useWorld((s) => s.selectTagBridge);
   const plankStartMs = riseSchedule.get(plankId(bKey, index)) ?? 0;
   const yOffsetRef = useYOffsetRef(plankStartMs);
   const restY = plank.position.y;
@@ -203,27 +202,6 @@ function AnimatedPlank({
       ? riseYOffset(performance.now() - riseStartMs, plankStartMs)
       : 0;
 
-  const pointerHandlers = interactive
-    ? {
-        onPointerOver: (e: THREE.Event) => {
-          e.stopPropagation();
-          setHover(bKey, index);
-          document.body.style.cursor = 'pointer';
-        },
-        onPointerOut: (e: THREE.Event) => {
-          e.stopPropagation();
-          setHover(null, null);
-          document.body.style.cursor = '';
-        },
-        onClick: (e: THREE.Event) => {
-          e.stopPropagation();
-          selectTagBridge(
-            selectedBridgeKey === bKey ? null : bKey,
-          );
-        },
-      }
-    : {};
-
   return (
     <mesh
       ref={meshRef}
@@ -235,7 +213,7 @@ function AnimatedPlank({
       rotation={plank.rotation}
       geometry={getPlankGeometry(plank.geometrySeed)}
       renderOrder={renderOrder}
-      {...pointerHandlers}
+      raycast={() => null}
     >
       <meshStandardMaterial
         color={plank.color}
@@ -459,6 +437,73 @@ function BridgeInfoPanel({
   );
 }
 
+function BridgeDeckHitArea({
+  spec,
+  bKey,
+  yOffsetRef,
+}: {
+  spec: BridgeMeshSpec;
+  bKey: string;
+  yOffsetRef: MutableRefObject<number>;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { interactive, setHover } = useBridgeInteraction();
+  const selectedBridgeKey = useWorld((s) => s.selectedTagBridgeKey);
+  const selectTagBridge = useWorld((s) => s.selectTagBridge);
+  const { renderOrder, planks, deckHitGeometry } = spec;
+
+  const applyY = () => {
+    if (!meshRef.current) return;
+    meshRef.current.position.y = yOffsetRef.current;
+  };
+
+  useLayoutEffect(applyY);
+  useFrame(applyY);
+
+  const pickPlank = (point: THREE.Vector3) =>
+    pickPlankIndexAtPoint(planks, point);
+
+  const pointerHandlers = interactive
+    ? {
+        onPointerOver: (e: THREE.Event & { point: THREE.Vector3 }) => {
+          e.stopPropagation();
+          const index = pickPlank(e.point);
+          setHover(bKey, index);
+          document.body.style.cursor = 'pointer';
+        },
+        onPointerMove: (e: THREE.Event & { point: THREE.Vector3 }) => {
+          e.stopPropagation();
+          setHover(bKey, pickPlank(e.point));
+        },
+        onPointerOut: (e: THREE.Event) => {
+          e.stopPropagation();
+          setHover(null, null);
+          document.body.style.cursor = '';
+        },
+        onClick: (e: THREE.Event) => {
+          e.stopPropagation();
+          selectTagBridge(selectedBridgeKey === bKey ? null : bKey);
+        },
+      }
+    : {};
+
+  return (
+    <mesh
+      ref={meshRef}
+      geometry={deckHitGeometry}
+      renderOrder={renderOrder + 8}
+      {...pointerHandlers}
+    >
+      <meshBasicMaterial
+        transparent
+        opacity={0}
+        depthWrite={false}
+        depthTest={false}
+      />
+    </mesh>
+  );
+}
+
 function TagBridgeMesh({
   spec,
   bKey,
@@ -480,6 +525,8 @@ function TagBridgeMesh({
 
   return (
     <group>
+      <BridgeDeckHitArea spec={spec} bKey={bKey} yOffsetRef={yOffsetRef} />
+
       {spec.pilings.map((p, i) => (
         <AnimatedPiling
           key={`p-${i}`}

@@ -115,7 +115,12 @@ export interface BridgeMeshSpec {
   pilings: PilingSpec[];
   renderOrder: number;
   yLift: number;
+  /** Invisible ribbon between stringers for pointer hit-testing. */
+  deckHitGeometry: THREE.BufferGeometry;
 }
+
+/** Lateral offset of side stringers from bridge centerline. */
+export const STRINGER_LATERAL_OFFSET = PLANK_SPAN * 0.45;
 
 function offsetPoint(
   point: THREE.Vector3,
@@ -169,7 +174,7 @@ export function buildBridgeMeshSpec(
     };
   });
 
-  const stringerOffset = PLANK_SPAN * 0.45;
+  const stringerOffset = STRINGER_LATERAL_OFFSET;
   const stringerPoints = curve.getSpacedPoints(Math.max(8, plankCount));
   const leftPts = stringerPoints.map((p, i) => {
     const t = i / Math.max(stringerPoints.length - 1, 1);
@@ -206,13 +211,82 @@ export function buildBridgeMeshSpec(
     }
   }
 
+  const deckY = BASE_Y + yLift + 0.05;
+  const deckHitGeometry = buildBridgeDeckHitGeometry(
+    curve,
+    deckY,
+    stringerOffset,
+    plankCount,
+  );
+
   return {
     planks,
     stringers,
     pilings,
     renderOrder,
     yLift,
+    deckHitGeometry,
   };
+}
+
+/** Ribbon mesh between the two stringers for stable bridge-level hover. */
+export function buildBridgeDeckHitGeometry(
+  curve: THREE.QuadraticBezierCurve3,
+  deckY: number,
+  halfWidth: number,
+  plankCount: number,
+): THREE.BufferGeometry {
+  const segments = Math.max(plankCount * 3, 16);
+  const verts: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const p = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t).normalize();
+    const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
+    const left = p
+      .clone()
+      .setY(deckY)
+      .addScaledVector(side, -halfWidth);
+    const right = p
+      .clone()
+      .setY(deckY)
+      .addScaledVector(side, halfWidth);
+    verts.push(left.x, left.y, left.z, right.x, right.y, right.z);
+  }
+
+  for (let i = 0; i < segments; i++) {
+    const a = i * 2;
+    const b = a + 1;
+    const c = a + 2;
+    const d = a + 3;
+    indices.push(a, b, c, b, d, c);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+export function pickPlankIndexAtPoint(
+  planks: PlankSpec[],
+  point: THREE.Vector3,
+): number {
+  let best = 0;
+  let bestDistSq = Infinity;
+  for (let i = 0; i < planks.length; i++) {
+    const dx = planks[i].position.x - point.x;
+    const dz = planks[i].position.z - point.z;
+    const distSq = dx * dx + dz * dz;
+    if (distSq < bestDistSq) {
+      bestDistSq = distSq;
+      best = i;
+    }
+  }
+  return best;
 }
 
 /** Sample xz points along all bridge curves for decor exclusion. */
