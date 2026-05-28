@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,6 +28,7 @@ import {
   getBridgeRiseStartMs,
   plankId,
   riseYOffset,
+  SINK_DEPTH,
   SINK_DURATION_MS,
   sinkYOffsetFrom,
   type TagBridgeAnimPhase,
@@ -67,10 +69,10 @@ function getPlankGeometry(seed: string): THREE.BufferGeometry {
 
 function useYOffsetRef(plankStartMs: number): MutableRefObject<number> {
   const { phase, riseStartMs, sinkStartMs } = useTagBridgeAnimation();
-  const yRef = useRef(0);
+  const yRef = useRef(-SINK_DEPTH);
   const sinkFromRef = useRef<number | null>(null);
 
-  useFrame(() => {
+  const syncYOffset = () => {
     const now = performance.now();
     if (phase === 'hidden' || phase === 'shown') {
       sinkFromRef.current = null;
@@ -89,6 +91,14 @@ function useYOffsetRef(plankStartMs: number): MutableRefObject<number> {
     }
     sinkFromRef.current = null;
     yRef.current = riseYOffset(now - riseStartMs, plankStartMs);
+  };
+
+  useLayoutEffect(() => {
+    syncYOffset();
+  }, [phase, riseStartMs, sinkStartMs, plankStartMs]);
+
+  useFrame(() => {
+    syncYOffset();
   });
 
   return yRef;
@@ -106,24 +116,39 @@ function AnimatedPlank({
   renderOrder: number;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { riseSchedule } = useTagBridgeAnimation();
+  const { phase, riseStartMs, riseSchedule } = useTagBridgeAnimation();
   const plankStartMs = riseSchedule.get(plankId(bKey, index)) ?? 0;
   const yOffsetRef = useYOffsetRef(plankStartMs);
   const restY = plank.position.y;
 
-  useFrame(() => {
+  const applyPosition = () => {
     if (!meshRef.current) return;
     meshRef.current.position.set(
       plank.position.x,
       restY + yOffsetRef.current,
       plank.position.z,
     );
-  });
+  };
+
+  useLayoutEffect(() => {
+    applyPosition();
+  }, [phase, riseStartMs, plankStartMs, restY]);
+
+  useFrame(applyPosition);
+
+  const initialYOffset =
+    phase === 'rising'
+      ? riseYOffset(performance.now() - riseStartMs, plankStartMs)
+      : 0;
 
   return (
     <mesh
       ref={meshRef}
-      position={plank.position}
+      position={[
+        plank.position.x,
+        restY + initialYOffset,
+        plank.position.z,
+      ]}
       rotation={plank.rotation}
       geometry={getPlankGeometry(plank.geometrySeed)}
       renderOrder={renderOrder}
@@ -164,15 +189,19 @@ function StringerSegment({
   const len = useMemo(() => a.distanceTo(b), [a, b]);
   const yaw = useMemo(() => Math.atan2(b.x - a.x, b.z - a.z), [a, b]);
 
-  useFrame(() => {
+  const applyY = () => {
     if (!meshRef.current) return;
     meshRef.current.position.y = baseY + yOffsetRef.current;
-  });
+  };
+
+  useLayoutEffect(applyY);
+
+  useFrame(applyY);
 
   return (
     <mesh
       ref={meshRef}
-      position={[mid.x, baseY, mid.z]}
+      position={[mid.x, baseY + yOffsetRef.current, mid.z]}
       rotation={[0, yaw, 0]}
       renderOrder={renderOrder}
     >
@@ -234,15 +263,19 @@ function AnimatedPiling({
   const meshRef = useRef<THREE.Mesh>(null);
   const restY = position[1] + height / 2;
 
-  useFrame(() => {
+  const applyY = () => {
     if (!meshRef.current) return;
     meshRef.current.position.y = restY + yOffsetRef.current;
-  });
+  };
+
+  useLayoutEffect(applyY);
+
+  useFrame(applyY);
 
   return (
     <mesh
       ref={meshRef}
-      position={[position[0], restY, position[2]]}
+      position={[position[0], restY + yOffsetRef.current, position[2]]}
       renderOrder={renderOrder}
     >
       <boxGeometry args={[0.1, height, 0.1]} />
@@ -262,13 +295,17 @@ function AnimatedRailing({
 }) {
   const groupRef = useRef<THREE.Group>(null);
 
-  useFrame(() => {
+  const applyY = () => {
     if (!groupRef.current) return;
     groupRef.current.position.y = yOffsetRef.current;
-  });
+  };
+
+  useLayoutEffect(applyY);
+
+  useFrame(applyY);
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} position={[0, yOffsetRef.current, 0]}>
       <Line
         points={points}
         color={ROPE_COLOR}
