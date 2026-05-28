@@ -8,7 +8,7 @@ export interface DecorationDef {
   enabled?: boolean;
   /** Target size for normalization (default 0.55). */
   footprint?: number;
-  /** xz = trees/rocks; y = grass/flowers (wide fields); max = large formations. */
+  /** xz = trees/rocks; y = grass (wide fields); max = large formations. */
   fitExtent?: DecorFitExtent;
   scaleMin?: number;
   scaleMax?: number;
@@ -22,13 +22,6 @@ export const DECORATIONS: Record<string, DecorationDef> = {
     footprint: 0.55,
     fitExtent: 'xz',
   },
-  'pine-trees': {
-    id: 'pine-trees',
-    url: '/models/decorations/pine-trees.glb',
-    weight: 15,
-    footprint: 0.58,
-    fitExtent: 'xz',
-  },
   grass: {
     id: 'grass',
     url: '/models/decorations/grass.glb',
@@ -36,14 +29,6 @@ export const DECORATIONS: Record<string, DecorationDef> = {
     footprint: 0.42,
     fitExtent: 'y',
     scaleMax: 0.48,
-  },
-  flowers: {
-    id: 'flowers',
-    url: '/models/decorations/flowers.glb',
-    weight: 15,
-    footprint: 0.38,
-    fitExtent: 'y',
-    scaleMax: 0.42,
   },
   rock: {
     id: 'rock',
