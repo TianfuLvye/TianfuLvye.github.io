@@ -28,7 +28,7 @@ import {
   plankId,
   riseYOffset,
   SINK_DURATION_MS,
-  sinkYOffset,
+  sinkYOffsetFrom,
   type TagBridgeAnimPhase,
 } from '../lib/tag-bridge-animation';
 import type { TagBridge } from '../lib/types';
@@ -68,17 +68,26 @@ function getPlankGeometry(seed: string): THREE.BufferGeometry {
 function useYOffsetRef(plankStartMs: number): MutableRefObject<number> {
   const { phase, riseStartMs, sinkStartMs } = useTagBridgeAnimation();
   const yRef = useRef(0);
+  const sinkFromRef = useRef<number | null>(null);
 
   useFrame(() => {
     const now = performance.now();
     if (phase === 'hidden' || phase === 'shown') {
+      sinkFromRef.current = null;
       yRef.current = 0;
       return;
     }
     if (phase === 'sinking') {
-      yRef.current = sinkYOffset(now - sinkStartMs);
+      if (sinkFromRef.current === null) {
+        sinkFromRef.current = riseYOffset(now - riseStartMs, plankStartMs);
+      }
+      yRef.current = sinkYOffsetFrom(
+        sinkFromRef.current,
+        now - sinkStartMs,
+      );
       return;
     }
+    sinkFromRef.current = null;
     yRef.current = riseYOffset(now - riseStartMs, plankStartMs);
   });
 

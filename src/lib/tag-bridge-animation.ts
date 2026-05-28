@@ -99,6 +99,15 @@ export function sinkYOffset(elapsedSinceSinkStart: number): number {
   return -SINK_DEPTH * easeOutCubic(t);
 }
 
+/** Sink from a captured offset (e.g. mid-rise) down to fully buried. */
+export function sinkYOffsetFrom(
+  startOffset: number,
+  elapsedSinceSinkStart: number,
+): number {
+  const t = clamp01(elapsedSinceSinkStart / SINK_DURATION_MS);
+  return startOffset + (-SINK_DEPTH - startOffset) * easeOutCubic(t);
+}
+
 export function computeRiseSchedule(
   bridges: TagBridge[],
   positions: Map<string, readonly [number, number, number]>,
