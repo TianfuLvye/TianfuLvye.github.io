@@ -10,5 +10,8 @@ export const BUILDING_MIN_SPACING = 3.6;
 /** Multiplier on catalog footprint for GLB buildings. */
 export const BUILDING_FOOTPRINT_SCALE = 1.55;
 
+/** Multiplier on decoration catalog footprint and scale caps. */
+export const DECOR_FOOTPRINT_SCALE = 4;
+
 /** Orthographic camera zoom; scales with map so the continent fits the view. */
 export const MAP_CAMERA_ZOOM = Math.round(48 * (MAP_SIZE / 18));

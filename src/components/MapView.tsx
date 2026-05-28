@@ -374,7 +374,7 @@ function Decorations({
         decorId: pickDecorationId(rng),
         x,
         z,
-        scale: 0.55 + rng() * 0.4,
+        scale: 1,
         rotation: rng() * Math.PI * 2,
       });
     }
