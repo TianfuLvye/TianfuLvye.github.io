@@ -1,27 +1,22 @@
-import type { BuildingPlacement } from './layout';
-import type { TagBridge } from './types';
+import type { NoteData, TagBridge } from './types';
 
 export interface BridgeTagSection {
   tag: string;
   notes: Array<{ id: string; title: string }>;
 }
 
-/** One row group per shared tag on this bridge edge. */
+/** One group per bridge tag — all notes on this continent that carry the tag. */
 export function buildBridgeTagSections(
   bridge: TagBridge,
-  buildingsById: Map<string, BuildingPlacement>,
+  continentNotes: NoteData[],
 ): BridgeTagSection[] {
-  const source = buildingsById.get(bridge.sourceId);
-  const target = buildingsById.get(bridge.targetId);
-  if (!source || !target) return [];
-
-  return bridge.tags.map((tag) => ({
-    tag,
-    notes: [
-      { id: source.note.id, title: source.note.title },
-      { id: target.note.id, title: target.note.title },
-    ],
-  }));
+  return bridge.tags.map((tag) => {
+    const notes = continentNotes
+      .filter((n) => n.tags.includes(tag))
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map((n) => ({ id: n.id, title: n.title }));
+    return { tag, notes };
+  });
 }
 
 export function bridgeKindLabel(kind: TagBridge['kind']): string | null {

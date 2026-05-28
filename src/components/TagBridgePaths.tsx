@@ -9,17 +9,11 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { BuildingPlacement } from '../lib/layout';
 import {
-  bridgeKindLabel,
-  buildBridgeTagSections,
-} from '../lib/bridge-tag-info';
-import {
   BASE_Y,
-  bridgeCurve,
   buildBridgeMeshSpec,
   buildPlankGeometry,
   pickPlankIndexAtPoint,
@@ -27,7 +21,6 @@ import {
   type BridgeMeshSpec,
   type PlankSpec,
 } from '../lib/plank-bridge';
-import { colorForTag } from '../lib/tag-bridges';
 import {
   bridgeKey,
   computeRiseEndMs,
@@ -82,23 +75,6 @@ function useBridgeInteraction(): BridgeInteractionValue {
   const ctx = useContext(BridgeInteractionContext);
   if (!ctx) throw new Error('BridgeInteractionContext missing');
   return ctx;
-}
-
-function useOrthoHtmlDistanceFactor(multiplier = 1) {
-  const camera = useThree((s) => s.camera);
-  const [factor, setFactor] = useState(() =>
-    camera instanceof THREE.OrthographicCamera
-      ? multiplier / camera.zoom
-      : multiplier,
-  );
-
-  useFrame(() => {
-    if (!(camera instanceof THREE.OrthographicCamera)) return;
-    const next = multiplier / camera.zoom;
-    setFactor((prev) => (Math.abs(prev - next) > 1e-5 ? next : prev));
-  });
-
-  return factor;
 }
 
 const geometryCache = new Map<string, THREE.BufferGeometry>();
@@ -362,81 +338,6 @@ function AnimatedPiling({
   );
 }
 
-function BridgeInfoPanel({
-  bridge,
-  buildingsById,
-  panelPosition,
-}: {
-  bridge: TagBridge;
-  buildingsById: Map<string, BuildingPlacement>;
-  panelPosition: THREE.Vector3;
-}) {
-  const htmlDistanceFactor = useOrthoHtmlDistanceFactor(1);
-  const hoverNote = useWorld((s) => s.hoverNote);
-  const sections = useMemo(
-    () => buildBridgeTagSections(bridge, buildingsById),
-    [bridge, buildingsById],
-  );
-  const kindLabel = bridgeKindLabel(bridge.kind);
-
-  const clearHover = () => hoverNote(null);
-
-  return (
-    <Html
-      position={[panelPosition.x, panelPosition.y, panelPosition.z]}
-      center
-      distanceFactor={htmlDistanceFactor}
-      style={{ pointerEvents: 'auto' }}
-    >
-      <div
-        className="bridge-info-panel"
-        onPointerOut={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            clearHover();
-          }
-        }}
-      >
-        {kindLabel && (
-          <div className="bridge-info-kind">{kindLabel}</div>
-        )}
-        <p className="bridge-info-heading">
-          These files share the same tag:
-        </p>
-        {sections.map((section) => (
-          <div key={section.tag} className="bridge-info-tag-group">
-            <div className="bridge-info-tag-line">
-              <span
-                className="bridge-info-tag"
-                style={{ color: colorForTag(section.tag) }}
-              >
-                tag {section.tag}
-              </span>
-              <span className="bridge-info-sep"> — </span>
-              <span
-                className="bridge-info-file"
-                onMouseEnter={() => hoverNote(section.notes[0].id)}
-                onMouseLeave={clearHover}
-              >
-                {section.notes[0].title}
-              </span>
-            </div>
-            {section.notes.slice(1).map((note) => (
-              <div
-                key={note.id}
-                className="bridge-info-file bridge-info-file-indent"
-                onMouseEnter={() => hoverNote(note.id)}
-                onMouseLeave={clearHover}
-              >
-                {note.title}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </Html>
-  );
-}
-
 function BridgeDeckHitArea({
   spec,
   bKey,
@@ -571,41 +472,20 @@ function TagBridge({
   buildingsById: Map<string, BuildingPlacement>;
 }) {
   const bKey = bridgeKey(bridge);
-  const selectedBridgeKey = useWorld((s) => s.selectedTagBridgeKey);
-  const { phase } = useTagBridgeAnimation();
 
-  const { spec, panelPosition } = useMemo(() => {
+  const spec = useMemo(() => {
     const a = buildingsById.get(bridge.sourceId);
     const b = buildingsById.get(bridge.targetId);
-    if (!a || !b) return { spec: null, panelPosition: null };
+    if (!a || !b) return null;
 
     const start = new THREE.Vector3(a.position[0], BASE_Y, a.position[2]);
     const end = new THREE.Vector3(b.position[0], BASE_Y, b.position[2]);
-    const meshSpec = buildBridgeMeshSpec(bridge, start, end);
-    const seed = `${bridge.sourceId}:${bridge.targetId}`;
-    const curve = bridgeCurve(start, end, seed);
-    const mid = curve.getPointAt(0.5);
-    mid.y = BASE_Y + meshSpec.yLift + 0.55;
-    return { spec: meshSpec, panelPosition: mid };
+    return buildBridgeMeshSpec(bridge, start, end);
   }, [bridge, buildingsById]);
 
   if (!spec) return null;
 
-  const showPanel =
-    selectedBridgeKey === bKey && phase === 'shown' && panelPosition;
-
-  return (
-    <>
-      <TagBridgeMesh spec={spec} bKey={bKey} />
-      {showPanel && (
-        <BridgeInfoPanel
-          bridge={bridge}
-          buildingsById={buildingsById}
-          panelPosition={panelPosition}
-        />
-      )}
-    </>
-  );
+  return <TagBridgeMesh spec={spec} bKey={bKey} />;
 }
 
 export default function TagBridgePaths({ bridges, buildings, visible }: Props) {

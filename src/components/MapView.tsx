@@ -47,7 +47,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
     [continent.notes],
   );
   const sortKey = useWorld((s) => s.sortKey);
-  const hoveredId = useWorld((s) => s.hoveredNoteId);
+  const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
   const selectNote = useWorld((s) => s.selectNote);
   const selectedNoteId = useWorld((s) => s.selectedNote?.id ?? null);
   const showTagPaths = useWorld((s) => s.showTagPaths);
@@ -135,7 +135,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
         <Building
           key={b.note.id}
           placement={b}
-          isHovered={hoveredId === b.note.id}
+          isHovered={hoveredNoteIds.includes(b.note.id)}
           isSelected={selectedNoteId === b.note.id}
           isFloating={isSorted}
           floatRank={sortRank.get(b.note.id) ?? 0}

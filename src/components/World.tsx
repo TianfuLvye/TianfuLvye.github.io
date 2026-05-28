@@ -7,6 +7,7 @@ import MapView from './MapView';
 import CloudTransition from './CloudTransition';
 import DetailsPanel from './DetailsPanel';
 import Sidebar from './Sidebar';
+import BridgeTagInfoDock from './BridgeTagInfoDock';
 import HUD from './HUD';
 
 interface Props {
@@ -109,6 +110,10 @@ export default function World({ tree }: Props) {
           continent={currentContinent}
           onPick={(n) => selectNote(n)}
         />
+      )}
+
+      {view.kind === 'map' && currentContinent && (
+        <BridgeTagInfoDock continent={currentContinent} />
       )}
 
       <DetailsPanel

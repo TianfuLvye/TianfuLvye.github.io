@@ -19,7 +19,7 @@ export default function Sidebar({ continent, onPick }: Props) {
   const setSort = useWorld((s) => s.setSort);
   const showTagPaths = useWorld((s) => s.showTagPaths);
   const setShowTagPaths = useWorld((s) => s.setShowTagPaths);
-  const hoveredId = useWorld((s) => s.hoveredNoteId);
+  const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
   const hoverNote = useWorld((s) => s.hoverNote);
 
   const ordered = useMemo(() => {
@@ -79,7 +79,7 @@ export default function Sidebar({ continent, onPick }: Props) {
         {ordered.map((n) => (
           <li
             key={n.id}
-            className={`file-item ${hoveredId === n.id ? 'is-hover' : ''}`}
+            className={`file-item ${hoveredNoteIds.includes(n.id) ? 'is-hover' : ''}`}
             onMouseEnter={() => hoverNote(n.id)}
             onMouseLeave={() => hoverNote(null)}
             onClick={() => onPick(n)}

@@ -7,8 +7,8 @@ interface WorldStore {
   selectedNote: NoteData | null;
   /** 在 globe 视图里悬停/点击高亮的 continent */
   focusedContinent: string | null;
-  /** 在 map 视图里悬停的 note id（左侧 sidebar hover 联动） */
-  hoveredNoteId: string | null;
+  /** 在 map 视图里高亮的 note id（sidebar、tag 面板等） */
+  hoveredNoteIds: string[];
   /** map 视图的 sort_by 模式 */
   sortKey: SortKey;
   /** 云朵转场是否正在进行 */
@@ -23,6 +23,7 @@ interface WorldStore {
   focusContinent: (id: string | null) => void;
   selectNote: (note: NoteData | null) => void;
   hoverNote: (id: string | null) => void;
+  hoverNotes: (ids: string[]) => void;
   setSort: (k: SortKey) => void;
   setTransitioning: (t: boolean) => void;
   setShowTagPaths: (v: boolean) => void;
@@ -33,7 +34,7 @@ export const useWorld = create<WorldStore>((set) => ({
   view: { kind: 'globe' },
   selectedNote: null,
   focusedContinent: null,
-  hoveredNoteId: null,
+  hoveredNoteIds: [],
   sortKey: 'default',
   transitioning: false,
   showTagPaths: false,
@@ -43,7 +44,7 @@ export const useWorld = create<WorldStore>((set) => ({
     set({
       view: { kind: 'map', continentId },
       selectedNote: null,
-      hoveredNoteId: null,
+      hoveredNoteIds: [],
       sortKey: 'default',
       focusedContinent: null,
       showTagPaths: false,
@@ -53,14 +54,15 @@ export const useWorld = create<WorldStore>((set) => ({
     set({
       view: { kind: 'globe' },
       selectedNote: null,
-      hoveredNoteId: null,
+      hoveredNoteIds: [],
       sortKey: 'default',
       showTagPaths: false,
       selectedTagBridgeKey: null,
     }),
   focusContinent: (id) => set({ focusedContinent: id }),
   selectNote: (note) => set({ selectedNote: note }),
-  hoverNote: (id) => set({ hoveredNoteId: id }),
+  hoverNote: (id) => set({ hoveredNoteIds: id ? [id] : [] }),
+  hoverNotes: (ids) => set({ hoveredNoteIds: ids }),
   setSort: (k) => set({ sortKey: k }),
   setTransitioning: (t) => set({ transitioning: t }),
   setShowTagPaths: (v) =>

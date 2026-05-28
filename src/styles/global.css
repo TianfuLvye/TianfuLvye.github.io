@@ -273,6 +273,24 @@ button {
   background: var(--ochre-deep);
 }
 
+.bridge-info-dock {
+  position: absolute;
+  left: 24px;
+  right: 328px;
+  bottom: 24px;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.bridge-info-dock .bridge-info-panel {
+  pointer-events: auto;
+  width: min(560px, 100%);
+  max-height: min(32vh, 240px);
+  overflow-y: auto;
+}
+
 .bridge-info-panel {
   background: var(--paper);
   color: var(--ink);
@@ -282,7 +300,6 @@ button {
   font-size: 11px;
   line-height: 1.45;
   min-width: 200px;
-  max-width: 280px;
   box-shadow:
     0 0 0 1px var(--rule),
     0 6px 16px rgba(0, 0, 0, 0.35);
@@ -305,10 +322,19 @@ button {
 
 .bridge-info-tag-group {
   margin-bottom: 6px;
+  padding: 5px 8px;
+  margin-left: -8px;
+  margin-right: -8px;
+  border-radius: 2px;
+  cursor: default;
 }
 
 .bridge-info-tag-group:last-child {
   margin-bottom: 0;
+}
+
+.bridge-info-tag-group:hover {
+  background: var(--rule-soft);
 }
 
 .bridge-info-tag-line {
@@ -328,15 +354,7 @@ button {
 }
 
 .bridge-info-file {
-  cursor: pointer;
   color: var(--ink);
-  transition: color 0.12s ease;
-}
-
-.bridge-info-file:hover {
-  color: var(--ochre-deep);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 .bridge-info-file-indent {
