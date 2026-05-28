@@ -5,7 +5,7 @@ export interface NoteData {
   slug: string;
   /** frontmatter 标题 */
   title: string;
-  /** 文件大小（字节，body 长度近似） */
+  /** 正文字数（字符数，即 entry.body.length） */
   size: number;
   /** 修改/发布日期 ISO 字符串 */
   date: string;
@@ -33,7 +33,7 @@ export interface ContinentData {
   id: string;            // 文件夹名，如 "travel"
   label: string;         // 展示名（首字母大写）
   notes: NoteData[];
-  totalSize: number;     // 大陆体量 = 内部所有 note size 之和
+  totalSize: number;     // 大陆总字数 = 各 note.size 之和
   tagBridges: TagBridge[];
 }
 

@@ -1,14 +1,10 @@
+import { formatNoteCharCount } from '../lib/note-size';
 import type { NoteData } from '../lib/types';
 
 interface Props {
   note: NoteData | null;
   onClose: () => void;
   onOpen: (note: NoteData) => void;
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  return `${(n / 1024).toFixed(1)} KB`;
 }
 
 function formatDate(iso: string): string {
@@ -34,8 +30,8 @@ export default function DetailsPanel({ note, onClose, onOpen }: Props) {
               <dd>{formatDate(note.date)}</dd>
             </div>
             <div>
-              <dt>size</dt>
-              <dd>{formatBytes(note.size)}</dd>
+              <dt>字数</dt>
+              <dd>{formatNoteCharCount(note.size)}</dd>
             </div>
             {note.tags.length > 0 && (
               <div>

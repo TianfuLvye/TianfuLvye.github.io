@@ -4,17 +4,11 @@ import {
   type BuildingDef,
   type SizeTier,
 } from '../config/building-catalog';
+import { sizeTierFromNoteSize } from './note-size';
 import { rngFor } from './random';
 import type { NoteData } from './types';
 
 const TIER_ORDER: SizeTier[] = ['small', 'medium', 'large'];
-
-export function sizeTierFromNoteSize(size: number): SizeTier {
-  const k = Math.log10(size + 50) / 4;
-  if (k < 0.35) return 'small';
-  if (k >= 0.65) return 'large';
-  return 'medium';
-}
 
 function widenTiers(tier: SizeTier): SizeTier[] {
   const i = TIER_ORDER.indexOf(tier);

@@ -28,7 +28,7 @@ export function buildWorldTree(entries: CollectionEntry<'notes'>[]): WorldTree {
       id: entry.id,
       slug: entry.id,
       title: resolveNoteTitle(entry),
-      size: body.length,
+      size: body.length, // 正文字符数
       date: resolveNoteDate(entry).toISOString(),
       summary: entry.data.summary,
       tags: entry.data.tags ?? [],

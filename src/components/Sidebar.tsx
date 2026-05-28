@@ -1,4 +1,8 @@
 import { useMemo } from 'react';
+import {
+  formatNoteCharCount,
+  formatTotalNoteCharCount,
+} from '../lib/note-size';
 import type { ContinentData, NoteData, SortKey } from '../lib/types';
 import { useWorld } from '../store';
 
@@ -47,7 +51,7 @@ export default function Sidebar({ continent, onPick }: Props) {
         <h3 className="sidebar-name">{continent.label}</h3>
         <div className="sidebar-count">
           {continent.notes.length} notes ·{' '}
-          {(continent.totalSize / 1024).toFixed(1)} KB
+          {formatTotalNoteCharCount(continent.totalSize)}
         </div>
       </div>
 
@@ -86,7 +90,7 @@ export default function Sidebar({ continent, onPick }: Props) {
             onDoubleClick={() => onPick(n)}
           >
             <span className="file-title">{n.title}</span>
-            <span className="file-size">{(n.size / 1024).toFixed(1)}K</span>
+            <span className="file-size">{formatNoteCharCount(n.size)}</span>
           </li>
         ))}
       </ul>
