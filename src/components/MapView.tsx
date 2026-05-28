@@ -120,10 +120,11 @@ export default function MapView({ continent, onOpenNote }: Props) {
         buildings={buildings}
       />
 
-      {showTagPaths && continent.tagBridges.length > 0 && (
+      {continent.tagBridges.length > 0 && (
         <TagBridgePaths
           bridges={continent.tagBridges}
           buildings={buildings}
+          visible={showTagPaths}
         />
       )}
 
