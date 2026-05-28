@@ -31,6 +31,22 @@ function applyEmissive(root: THREE.Object3D, emphasized: boolean) {
   });
 }
 
+/** Deep-clone scene nodes; give each mesh its own materials (useGLTF cache shares them). */
+function cloneSceneWithMaterials(scene: THREE.Object3D): THREE.Object3D {
+  const root = scene.clone(true);
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    child.castShadow = true;
+    child.receiveShadow = true;
+    if (Array.isArray(child.material)) {
+      child.material = child.material.map((m) => m.clone());
+    } else if (child.material) {
+      child.material = child.material.clone();
+    }
+  });
+  return root;
+}
+
 function extentFromSize(
   size: THREE.Vector3,
   fitExtent: DecorFitExtent,
@@ -58,13 +74,7 @@ export default function GlTFModel({
 
   /** Bbox from a fresh local-space clone — never re-measure after parent scale is applied. */
   const { clone, localSize, localMinY } = useMemo(() => {
-    const c = scene.clone(true);
-    c.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
+    const c = cloneSceneWithMaterials(scene);
     const box = new THREE.Box3().setFromObject(c);
     return {
       clone: c,
