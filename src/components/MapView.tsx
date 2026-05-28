@@ -51,6 +51,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
   const selectNote = useWorld((s) => s.selectNote);
   const selectedNoteId = useWorld((s) => s.selectedNote?.id ?? null);
   const showTagPaths = useWorld((s) => s.showTagPaths);
+  const selectTagBridge = useWorld((s) => s.selectTagBridge);
 
   // 根据 sortKey 排序，决定每个 note 的"漂浮顺序"
   const sortRank = useMemo(() => {
@@ -100,6 +101,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
         onClick={(e) => {
           e.stopPropagation();
           selectNote(null);
+          selectTagBridge(null);
         }}
       >
         <planeGeometry args={[MAP_SIZE, MAP_SIZE, 1, 1]} />

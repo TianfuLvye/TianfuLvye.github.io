@@ -273,6 +273,76 @@ button {
   background: var(--ochre-deep);
 }
 
+.bridge-info-panel {
+  background: var(--paper);
+  color: var(--ink);
+  padding: 10px 14px 12px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  min-width: 200px;
+  max-width: 280px;
+  box-shadow:
+    0 0 0 1px var(--rule),
+    0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.bridge-info-kind {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--ochre-deep);
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.bridge-info-heading {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
+.bridge-info-tag-group {
+  margin-bottom: 6px;
+}
+
+.bridge-info-tag-group:last-child {
+  margin-bottom: 0;
+}
+
+.bridge-info-tag-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+}
+
+.bridge-info-tag {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bridge-info-sep {
+  color: var(--ink-faint);
+}
+
+.bridge-info-file {
+  cursor: pointer;
+  color: var(--ink);
+  transition: color 0.12s ease;
+}
+
+.bridge-info-file:hover {
+  color: var(--ochre-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bridge-info-file-indent {
+  padding-left: 3.6em;
+}
+
 /* ============================================================
    Sidebar (right) — file list + sort pills
    ============================================================ */

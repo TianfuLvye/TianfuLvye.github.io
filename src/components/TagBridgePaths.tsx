@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -8,17 +9,24 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { BuildingPlacement } from '../lib/layout';
 import {
+  bridgeKindLabel,
+  buildBridgeTagSections,
+} from '../lib/bridge-tag-info';
+import {
   BASE_Y,
+  bridgeCurve,
   buildBridgeMeshSpec,
   buildPlankGeometry,
   WOOD_DARK,
   type BridgeMeshSpec,
   type PlankSpec,
 } from '../lib/plank-bridge';
+import { colorForTag } from '../lib/tag-bridges';
 import {
   bridgeKey,
   computeRiseEndMs,
@@ -32,12 +40,17 @@ import {
   type TagBridgeAnimPhase,
 } from '../lib/tag-bridge-animation';
 import type { TagBridge } from '../lib/types';
+import { useWorld } from '../store';
 
 interface Props {
   bridges: TagBridge[];
   buildings: BuildingPlacement[];
   visible: boolean;
 }
+
+const HOVER_PLANK_LIFT = 0.05;
+const SELECTED_BRIDGE_LIFT = 0.04;
+const BRIDGE_EMISSIVE = 0.14;
 
 interface AnimContextValue {
   phase: TagBridgeAnimPhase;
@@ -46,12 +59,45 @@ interface AnimContextValue {
   sinkStartMs: number;
 }
 
+interface BridgeInteractionValue {
+  hoveredBridgeKey: string | null;
+  hoveredPlankIndex: number | null;
+  interactive: boolean;
+  setHover: (bridgeKey: string | null, plankIndex: number | null) => void;
+}
+
 const TagBridgeAnimationContext = createContext<AnimContextValue | null>(null);
+const BridgeInteractionContext = createContext<BridgeInteractionValue | null>(
+  null,
+);
 
 function useTagBridgeAnimation(): AnimContextValue {
   const ctx = useContext(TagBridgeAnimationContext);
   if (!ctx) throw new Error('TagBridgeAnimationContext missing');
   return ctx;
+}
+
+function useBridgeInteraction(): BridgeInteractionValue {
+  const ctx = useContext(BridgeInteractionContext);
+  if (!ctx) throw new Error('BridgeInteractionContext missing');
+  return ctx;
+}
+
+function useOrthoHtmlDistanceFactor(multiplier = 1) {
+  const camera = useThree((s) => s.camera);
+  const [factor, setFactor] = useState(() =>
+    camera instanceof THREE.OrthographicCamera
+      ? multiplier / camera.zoom
+      : multiplier,
+  );
+
+  useFrame(() => {
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
+    const next = multiplier / camera.zoom;
+    setFactor((prev) => (Math.abs(prev - next) > 1e-5 ? next : prev));
+  });
+
+  return factor;
 }
 
 const geometryCache = new Map<string, THREE.BufferGeometry>();
@@ -115,22 +161,40 @@ function AnimatedPlank({
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { phase, riseStartMs, riseSchedule } = useTagBridgeAnimation();
+  const { hoveredBridgeKey, hoveredPlankIndex, interactive, setHover } =
+    useBridgeInteraction();
+  const selectedBridgeKey = useWorld((s) => s.selectedTagBridgeKey);
+  const selectTagBridge = useWorld((s) => s.selectTagBridge);
   const plankStartMs = riseSchedule.get(plankId(bKey, index)) ?? 0;
   const yOffsetRef = useYOffsetRef(plankStartMs);
   const restY = plank.position.y;
+
+  const isBridgeHovered = hoveredBridgeKey === bKey;
+  const isBridgeSelected = selectedBridgeKey === bKey;
+  const isPlankHovered = isBridgeHovered && hoveredPlankIndex === index;
+  const emphasize = isBridgeHovered || isBridgeSelected;
+  const interactionLift =
+    (isBridgeSelected ? SELECTED_BRIDGE_LIFT : 0) +
+    (isPlankHovered ? HOVER_PLANK_LIFT : 0);
 
   const applyPosition = () => {
     if (!meshRef.current) return;
     meshRef.current.position.set(
       plank.position.x,
-      restY + yOffsetRef.current,
+      restY + yOffsetRef.current + interactionLift,
       plank.position.z,
     );
   };
 
   useLayoutEffect(() => {
     applyPosition();
-  }, [phase, riseStartMs, plankStartMs, restY]);
+  }, [
+    phase,
+    riseStartMs,
+    plankStartMs,
+    restY,
+    interactionLift,
+  ]);
 
   useFrame(applyPosition);
 
@@ -139,22 +203,46 @@ function AnimatedPlank({
       ? riseYOffset(performance.now() - riseStartMs, plankStartMs)
       : 0;
 
+  const pointerHandlers = interactive
+    ? {
+        onPointerOver: (e: THREE.Event) => {
+          e.stopPropagation();
+          setHover(bKey, index);
+          document.body.style.cursor = 'pointer';
+        },
+        onPointerOut: (e: THREE.Event) => {
+          e.stopPropagation();
+          setHover(null, null);
+          document.body.style.cursor = '';
+        },
+        onClick: (e: THREE.Event) => {
+          e.stopPropagation();
+          selectTagBridge(
+            selectedBridgeKey === bKey ? null : bKey,
+          );
+        },
+      }
+    : {};
+
   return (
     <mesh
       ref={meshRef}
       position={[
         plank.position.x,
-        restY + initialYOffset,
+        restY + initialYOffset + interactionLift,
         plank.position.z,
       ]}
       rotation={plank.rotation}
       geometry={getPlankGeometry(plank.geometrySeed)}
       renderOrder={renderOrder}
+      {...pointerHandlers}
     >
       <meshStandardMaterial
         color={plank.color}
         roughness={0.92}
         metalness={0.02}
+        emissive={emphasize ? plank.color : '#000000'}
+        emissiveIntensity={emphasize ? BRIDGE_EMISSIVE : 0}
         depthWrite={renderOrder === 1}
         polygonOffset
         polygonOffsetFactor={-renderOrder}
@@ -171,6 +259,7 @@ function StringerSegment({
   baseY,
   renderOrder,
   yOffsetRef,
+  emphasized,
 }: {
   a: THREE.Vector3;
   b: THREE.Vector3;
@@ -178,6 +267,7 @@ function StringerSegment({
   baseY: number;
   renderOrder: number;
   yOffsetRef: MutableRefObject<number>;
+  emphasized: boolean;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const mid = useMemo(
@@ -208,6 +298,8 @@ function StringerSegment({
         color={color}
         roughness={0.95}
         metalness={0.01}
+        emissive={emphasized ? color : '#000000'}
+        emissiveIntensity={emphasized ? BRIDGE_EMISSIVE * 0.7 : 0}
         polygonOffset
         polygonOffsetFactor={-renderOrder}
       />
@@ -221,12 +313,14 @@ function StringerMesh({
   yLift,
   renderOrder,
   yOffsetRef,
+  emphasized,
 }: {
   points: THREE.Vector3[];
   color: string;
   yLift: number;
   renderOrder: number;
   yOffsetRef: MutableRefObject<number>;
+  emphasized: boolean;
 }) {
   const baseY = BASE_Y + 0.02 + yLift;
 
@@ -241,6 +335,7 @@ function StringerMesh({
           baseY={baseY}
           renderOrder={renderOrder}
           yOffsetRef={yOffsetRef}
+          emphasized={emphasized}
         />
       ))}
     </group>
@@ -252,11 +347,13 @@ function AnimatedPiling({
   height,
   renderOrder,
   yOffsetRef,
+  emphasized,
 }: {
   position: [number, number, number];
   height: number;
   renderOrder: number;
   yOffsetRef: MutableRefObject<number>;
+  emphasized: boolean;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const restY = position[1] + height / 2;
@@ -277,8 +374,88 @@ function AnimatedPiling({
       renderOrder={renderOrder}
     >
       <boxGeometry args={[0.1, height, 0.1]} />
-      <meshStandardMaterial color={WOOD_DARK} roughness={1} />
+      <meshStandardMaterial
+        color={WOOD_DARK}
+        roughness={1}
+        emissive={emphasized ? '#8a6a42' : '#000000'}
+        emissiveIntensity={emphasized ? 0.08 : 0}
+      />
     </mesh>
+  );
+}
+
+function BridgeInfoPanel({
+  bridge,
+  buildingsById,
+  panelPosition,
+}: {
+  bridge: TagBridge;
+  buildingsById: Map<string, BuildingPlacement>;
+  panelPosition: THREE.Vector3;
+}) {
+  const htmlDistanceFactor = useOrthoHtmlDistanceFactor(1);
+  const hoverNote = useWorld((s) => s.hoverNote);
+  const sections = useMemo(
+    () => buildBridgeTagSections(bridge, buildingsById),
+    [bridge, buildingsById],
+  );
+  const kindLabel = bridgeKindLabel(bridge.kind);
+
+  const clearHover = () => hoverNote(null);
+
+  return (
+    <Html
+      position={[panelPosition.x, panelPosition.y, panelPosition.z]}
+      center
+      distanceFactor={htmlDistanceFactor}
+      style={{ pointerEvents: 'auto' }}
+    >
+      <div
+        className="bridge-info-panel"
+        onPointerOut={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            clearHover();
+          }
+        }}
+      >
+        {kindLabel && (
+          <div className="bridge-info-kind">{kindLabel}</div>
+        )}
+        <p className="bridge-info-heading">
+          These files share the same tag:
+        </p>
+        {sections.map((section) => (
+          <div key={section.tag} className="bridge-info-tag-group">
+            <div className="bridge-info-tag-line">
+              <span
+                className="bridge-info-tag"
+                style={{ color: colorForTag(section.tag) }}
+              >
+                tag {section.tag}
+              </span>
+              <span className="bridge-info-sep"> — </span>
+              <span
+                className="bridge-info-file"
+                onMouseEnter={() => hoverNote(section.notes[0].id)}
+                onMouseLeave={clearHover}
+              >
+                {section.notes[0].title}
+              </span>
+            </div>
+            {section.notes.slice(1).map((note) => (
+              <div
+                key={note.id}
+                className="bridge-info-file bridge-info-file-indent"
+                onMouseEnter={() => hoverNote(note.id)}
+                onMouseLeave={clearHover}
+              >
+                {note.title}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </Html>
   );
 }
 
@@ -291,11 +468,15 @@ function TagBridgeMesh({
 }) {
   const { renderOrder, yLift, planks } = spec;
   const { riseSchedule } = useTagBridgeAnimation();
+  const { hoveredBridgeKey } = useBridgeInteraction();
+  const selectedBridgeKey = useWorld((s) => s.selectedTagBridgeKey);
   const bridgeRiseStartMs = useMemo(
     () => getBridgeRiseStartMs(bKey, planks.length, riseSchedule),
     [bKey, planks.length, riseSchedule],
   );
   const yOffsetRef = useYOffsetRef(bridgeRiseStartMs);
+  const emphasized =
+    hoveredBridgeKey === bKey || selectedBridgeKey === bKey;
 
   return (
     <group>
@@ -306,6 +487,7 @@ function TagBridgeMesh({
           height={p.height}
           renderOrder={renderOrder - 1}
           yOffsetRef={yOffsetRef}
+          emphasized={emphasized}
         />
       ))}
 
@@ -317,6 +499,7 @@ function TagBridgeMesh({
           yLift={yLift}
           renderOrder={renderOrder}
           yOffsetRef={yOffsetRef}
+          emphasized={emphasized}
         />
       ))}
 
@@ -341,21 +524,45 @@ function TagBridge({
   buildingsById: Map<string, BuildingPlacement>;
 }) {
   const bKey = bridgeKey(bridge);
-  const spec = useMemo(() => {
+  const selectedBridgeKey = useWorld((s) => s.selectedTagBridgeKey);
+  const { phase } = useTagBridgeAnimation();
+
+  const { spec, panelPosition } = useMemo(() => {
     const a = buildingsById.get(bridge.sourceId);
     const b = buildingsById.get(bridge.targetId);
-    if (!a || !b) return null;
+    if (!a || !b) return { spec: null, panelPosition: null };
 
     const start = new THREE.Vector3(a.position[0], BASE_Y, a.position[2]);
     const end = new THREE.Vector3(b.position[0], BASE_Y, b.position[2]);
-    return buildBridgeMeshSpec(bridge, start, end);
+    const meshSpec = buildBridgeMeshSpec(bridge, start, end);
+    const seed = `${bridge.sourceId}:${bridge.targetId}`;
+    const curve = bridgeCurve(start, end, seed);
+    const mid = curve.getPointAt(0.5);
+    mid.y = BASE_Y + meshSpec.yLift + 0.55;
+    return { spec: meshSpec, panelPosition: mid };
   }, [bridge, buildingsById]);
 
   if (!spec) return null;
-  return <TagBridgeMesh spec={spec} bKey={bKey} />;
+
+  const showPanel =
+    selectedBridgeKey === bKey && phase === 'shown' && panelPosition;
+
+  return (
+    <>
+      <TagBridgeMesh spec={spec} bKey={bKey} />
+      {showPanel && (
+        <BridgeInfoPanel
+          bridge={bridge}
+          buildingsById={buildingsById}
+          panelPosition={panelPosition}
+        />
+      )}
+    </>
+  );
 }
 
 export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
+  const selectTagBridge = useWorld((s) => s.selectTagBridge);
   const buildingsById = useMemo(() => {
     const m = new Map<string, BuildingPlacement>();
     for (const b of buildings) m.set(b.note.id, b);
@@ -380,8 +587,20 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
   const [riseStartMs, setRiseStartMs] = useState(0);
   const [sinkStartMs, setSinkStartMs] = useState(0);
   const [hasActivated, setHasActivated] = useState(false);
+  const [hoveredBridgeKey, setHoveredBridgeKey] = useState<string | null>(null);
+  const [hoveredPlankIndex, setHoveredPlankIndex] = useState<number | null>(
+    null,
+  );
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+
+  const setHover = useCallback(
+    (bridgeKey: string | null, plankIndex: number | null) => {
+      setHoveredBridgeKey(bridgeKey);
+      setHoveredPlankIndex(plankIndex);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (visible) {
@@ -393,11 +612,14 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
       return;
     }
 
+    setHover(null, null);
+    selectTagBridge(null);
+
     if (phaseRef.current === 'rising' || phaseRef.current === 'shown') {
       setSinkStartMs(performance.now());
       setPhase('sinking');
     }
-  }, [visible, bridges, positions]);
+  }, [visible, bridges, positions, setHover, selectTagBridge]);
 
   useFrame(() => {
     const now = performance.now();
@@ -422,20 +644,32 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
     [phase, riseSchedule, riseStartMs, sinkStartMs],
   );
 
+  const interactionValue = useMemo<BridgeInteractionValue>(
+    () => ({
+      hoveredBridgeKey,
+      hoveredPlankIndex,
+      interactive: phase === 'shown',
+      setHover,
+    }),
+    [hoveredBridgeKey, hoveredPlankIndex, phase, setHover],
+  );
+
   if (!hasActivated && phase === 'hidden') return null;
   if (phase === 'hidden') return null;
 
   return (
     <TagBridgeAnimationContext.Provider value={animValue}>
-      <group>
-        {ordered.map((bridge) => (
-          <TagBridge
-            key={`${bridge.sourceId}:${bridge.targetId}`}
-            bridge={bridge}
-            buildingsById={buildingsById}
-          />
-        ))}
-      </group>
+      <BridgeInteractionContext.Provider value={interactionValue}>
+        <group>
+          {ordered.map((bridge) => (
+            <TagBridge
+              key={`${bridge.sourceId}:${bridge.targetId}`}
+              bridge={bridge}
+              buildingsById={buildingsById}
+            />
+          ))}
+        </group>
+      </BridgeInteractionContext.Provider>
     </TagBridgeAnimationContext.Provider>
   );
 }
