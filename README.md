@@ -29,36 +29,51 @@ npm run preview      # 预览构建
 ## 项目结构
 
 ```
-src/
-├── content.config.ts        # content collection schema
-├── content/notes/
-│   ├── attachments/         # 全库图片（Obsidian ![[...]]，不参与 3D 地图）
-│   ├── travel/              # 大陆：笔记文件夹
-│   ├── tech/
-│   ├── thoughts/
-│   ├── journal/
-│   └── test/                # 例：picture test.md
-├── components/
-│   ├── World.tsx            # 总入口：相机 / 视图状态 / 转场
-│   ├── Globe.tsx            # 3D 地球 + 大陆长方体
-│   ├── MapView.tsx          # 2.5D 正交地图 + 建筑
-│   ├── CloudTransition.tsx  # globe ↔ map 云朵转场
-│   ├── DetailsPanel.tsx     # 右侧滑出详情
-│   ├── Sidebar.tsx          # map 视图右侧文件列表 + sort
-│   └── HUD.tsx              # 顶部面包屑 + 帮助
-├── layouts/
-│   ├── BaseLayout.astro     # html shell + 字体
-│   └── NoteLayout.astro     # 单篇 note 阅读页
-├── lib/
-│   ├── types.ts             # WorldTree / NoteData / ContinentData
-│   ├── random.ts            # mulberry32 + FNV-1a hash
-│   ├── build-tree.ts        # 从 content collection 构建 WorldTree
-│   └── layout.ts            # 球面 / 平面布局算法
-├── pages/
-│   ├── index.astro          # 3D 世界
-│   └── notes/[...slug].astro# 单篇 markdown 路由
-├── store.ts                 # zustand store
-└── styles/global.css        # 全局美学：老地图/探险家手册
+.
+├── astro.config.mjs           # Astro + React；remark/rehype（Obsidian、KaTeX）
+├── scripts/
+│   └── sync-note-attachments.mjs  # dev/build 前同步 attachments
+├── public/
+│   └── images/                # 静态资源（如缺失图片占位）
+└── src/
+    ├── content.config.ts      # content collection schema
+    ├── env.d.ts
+    ├── content/notes/
+    │   ├── attachments/       # 全库图片/PDF（Obsidian ![[...]]，不参与 3D 地图）
+    │   ├── travel/            # 大陆 = 第一层文件夹
+    │   ├── tech/
+    │   ├── journal/
+    │   ├── thoughts/
+    │   ├── test/
+    │   └── Classnotes/        # 可含子文件夹（如 z大三/）
+    ├── components/
+    │   ├── World.tsx          # 总入口：相机 / 视图状态 / 转场
+    │   ├── Globe.tsx          # 3D 地球 + 大陆长方体
+    │   ├── MapView.tsx        # 2.5D 正交地图 + 建筑 + 装饰物
+    │   ├── TagBridgePaths.tsx # tag 木板路 / 彩虹桥 3D 渲染
+    │   ├── CloudTransition.tsx# globe ↔ map 云朵转场
+    │   ├── DetailsPanel.tsx   # 右侧滑出详情
+    │   ├── Sidebar.tsx        # 文件列表 + sort + tag paths 开关
+    │   └── HUD.tsx            # 顶部面包屑 + 帮助
+    ├── layouts/
+    │   ├── BaseLayout.astro   # html shell + 字体
+    │   └── NoteLayout.astro   # 单篇 note 阅读页
+    ├── lib/
+    │   ├── types.ts           # WorldTree / NoteData / TagBridge …
+    │   ├── random.ts          # mulberry32 + FNV-1a hash
+    │   ├── build-tree.ts      # content collection → WorldTree + tagBridges
+    │   ├── layout.ts          # 球面 / 平面建筑布局
+    │   ├── tag-bridges.ts     # tag 生成树选边（距离、度数、桥型）
+    │   ├── plank-bridge.ts    # 桥曲线、木板几何、桥廊采样
+    │   ├── note-metadata.ts   # title / date 解析
+    │   ├── content-paths.ts   # notes 根路径、attachments 常量
+    │   ├── remark-obsidian-images.ts   # ![[image]] / PDF 嵌入
+    │   └── remark-obsidian-wikilinks.ts # [[wikilink]] → 站内链接
+    ├── pages/
+    │   ├── index.astro        # 3D 世界
+    │   └── notes/[...slug].astro  # 单篇 markdown 路由
+    ├── store.ts               # zustand 视图状态
+    └── styles/global.css      # 全局美学：老地图 / 探险家手册
 ```
 
 ## 已实现（MVP 范围）
