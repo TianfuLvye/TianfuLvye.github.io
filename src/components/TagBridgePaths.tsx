@@ -9,14 +9,12 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Line } from '@react-three/drei';
 import * as THREE from 'three';
 import type { BuildingPlacement } from '../lib/layout';
 import {
   BASE_Y,
   buildBridgeMeshSpec,
   buildPlankGeometry,
-  ROPE_COLOR,
   WOOD_DARK,
   type BridgeMeshSpec,
   type PlankSpec,
@@ -284,38 +282,6 @@ function AnimatedPiling({
   );
 }
 
-function AnimatedRailing({
-  points,
-  renderOrder,
-  yOffsetRef,
-}: {
-  points: THREE.Vector3[];
-  renderOrder: number;
-  yOffsetRef: MutableRefObject<number>;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-
-  const applyY = () => {
-    if (!groupRef.current) return;
-    groupRef.current.position.y = yOffsetRef.current;
-  };
-
-  useLayoutEffect(applyY);
-
-  useFrame(applyY);
-
-  return (
-    <group ref={groupRef} position={[0, yOffsetRef.current, 0]}>
-      <Line
-        points={points}
-        color={ROPE_COLOR}
-        lineWidth={1}
-        renderOrder={renderOrder}
-      />
-    </group>
-  );
-}
-
 function TagBridgeMesh({
   spec,
   bKey,
@@ -338,7 +304,7 @@ function TagBridgeMesh({
           key={`p-${i}`}
           position={p.position}
           height={p.height}
-          renderOrder={renderOrder}
+          renderOrder={renderOrder - 1}
           yOffsetRef={yOffsetRef}
         />
       ))}
@@ -361,15 +327,6 @@ function TagBridgeMesh({
           index={i}
           bKey={bKey}
           renderOrder={renderOrder}
-        />
-      ))}
-
-      {spec.railingSegments.map((seg, i) => (
-        <AnimatedRailing
-          key={`r-${i}`}
-          points={seg.points}
-          renderOrder={renderOrder + 1}
-          yOffsetRef={yOffsetRef}
         />
       ))}
     </group>

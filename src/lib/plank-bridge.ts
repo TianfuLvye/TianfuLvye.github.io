@@ -26,7 +26,6 @@ export const RAINBOW_COLORS = [
 ] as const;
 
 const WOOD_DARK = '#6b4a2a';
-const ROPE_COLOR = '#8a7355';
 const BRIDGE_CORRIDOR_RADIUS = 0.95;
 
 export function bridgeCurve(
@@ -110,15 +109,10 @@ export interface PilingSpec {
   height: number;
 }
 
-export interface RailingSegment {
-  points: THREE.Vector3[];
-}
-
 export interface BridgeMeshSpec {
   planks: PlankSpec[];
   stringers: StringerSpec[];
   pilings: PilingSpec[];
-  railingSegments: RailingSegment[];
   renderOrder: number;
   yLift: number;
 }
@@ -197,40 +191,25 @@ export function buildBridgeMeshSpec(
 
   const curveLen = curve.getLength();
   const pilingCount = Math.max(2, Math.floor(curveLen / 2.5) + 1);
+  const pilingHeight = 0.11 + yLift;
   const pilings: PilingSpec[] = [];
   for (let i = 0; i < pilingCount; i++) {
     const t = i / (pilingCount - 1);
     const point = curve.getPointAt(t);
-    pilings.push({
-      position: [point.x, BASE_Y + 0.01, point.z],
-      height: 0.12 + yLift,
-    });
-  }
-
-  const railingSegments: RailingSegment[] = [];
-  const postEvery = Math.max(2, Math.floor(plankCount / 3));
-  for (let i = 0; i < frames.length; i += postEvery) {
-    const { point, tangent } = frames[i];
-    const postH = 0.22 + yLift;
-    const lp = offsetPoint(point, tangent, -stringerOffset * 1.15);
-    const rp = offsetPoint(point, tangent, stringerOffset * 1.15);
-    const lBase = lp.clone().setY(BASE_Y + 0.02 + yLift);
-    const rBase = rp.clone().setY(BASE_Y + 0.02 + yLift);
-    const lTop = lp.clone().setY(BASE_Y + postH + yLift);
-    const rTop = rp.clone().setY(BASE_Y + postH + yLift);
-    const lMid = lBase.clone().lerp(lTop, 0.55);
-    lMid.y = BASE_Y + postH * 0.45 + yLift;
-    const rMid = rBase.clone().lerp(rTop, 0.55);
-    rMid.y = BASE_Y + postH * 0.45 + yLift;
-    railingSegments.push({ points: [lBase, lMid, lTop] });
-    railingSegments.push({ points: [rBase, rMid, rTop] });
+    const tangent = curve.getTangentAt(t).normalize();
+    for (const lateral of [-stringerOffset, stringerOffset]) {
+      const p = offsetPoint(point, tangent, lateral);
+      pilings.push({
+        position: [p.x, BASE_Y + 0.01, p.z],
+        height: pilingHeight,
+      });
+    }
   }
 
   return {
     planks,
     stringers,
     pilings,
-    railingSegments,
     renderOrder,
     yLift,
   };
@@ -279,4 +258,4 @@ export function isNearBridgeCorridor(
   return false;
 }
 
-export { WOOD_DARK, ROPE_COLOR, BRIDGE_CORRIDOR_RADIUS };
+export { WOOD_DARK, BRIDGE_CORRIDOR_RADIUS };
