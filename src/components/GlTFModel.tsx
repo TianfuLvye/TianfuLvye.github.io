@@ -1,5 +1,6 @@
 import { useGLTF } from '@react-three/drei';
-import { useEffect, useMemo } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { DecorFitExtent } from '../config/decoration-catalog';
 
@@ -14,6 +15,12 @@ export interface GlTFModelProps {
   fitExtent?: DecorFitExtent;
   scaleMin?: number;
   scaleMax?: number;
+  /** Single invisible pick volume; visual meshes do not raycast. */
+  interactive?: boolean;
+  onClick?: (e: ThreeEvent<MouseEvent>) => void;
+  onDoubleClick?: (e: ThreeEvent<MouseEvent>) => void;
+  onPointerOver?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerOut?: (e: ThreeEvent<PointerEvent>) => void;
 }
 
 function applyEmissive(root: THREE.Object3D, emphasized: boolean) {
@@ -47,6 +54,14 @@ function cloneSceneWithMaterials(scene: THREE.Object3D): THREE.Object3D {
   return root;
 }
 
+function disableVisualRaycast(root: THREE.Object3D) {
+  root.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.raycast = () => null;
+    }
+  });
+}
+
 function extentFromSize(
   size: THREE.Vector3,
   fitExtent: DecorFitExtent,
@@ -66,6 +81,11 @@ export default function GlTFModel({
   fitExtent = 'xz',
   scaleMin,
   scaleMax,
+  interactive = false,
+  onClick,
+  onDoubleClick,
+  onPointerOver,
+  onPointerOut,
 }: GlTFModelProps) {
   const { scene } = useGLTF(url);
   const scaleX = scale[0];
@@ -123,13 +143,60 @@ export default function GlTFModel({
     scaleMax,
   ]);
 
+  useLayoutEffect(() => {
+    if (!interactive) return;
+    disableVisualRaycast(clone);
+  }, [clone, interactive]);
+
   useEffect(() => {
     applyEmissive(clone, emphasized);
   }, [clone, emphasized]);
 
+  const [sx, sy, sz] = layout.modelScale;
+  const pickCenterY = layout.position[1] + layout.height / 2;
+  const pickSize: [number, number, number] = [
+    localSize.x * sx,
+    layout.height,
+    localSize.z * sz,
+  ];
+
+  const pickHandlers = interactive
+    ? {
+        onClick: (e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          onClick?.(e);
+        },
+        onDoubleClick: (e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          onDoubleClick?.(e);
+        },
+        onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+          e.stopPropagation();
+          onPointerOver?.(e);
+        },
+        onPointerOut: (e: ThreeEvent<PointerEvent>) => {
+          e.stopPropagation();
+          onPointerOut?.(e);
+        },
+      }
+    : {};
+
   return (
-    <group position={layout.position} scale={layout.modelScale}>
-      <primitive object={clone} />
+    <group>
+      <group position={layout.position} scale={layout.modelScale}>
+        <primitive object={clone} />
+      </group>
+      {interactive && (
+        <mesh position={[0, pickCenterY, 0]} {...pickHandlers}>
+          <boxGeometry args={pickSize} />
+          <meshBasicMaterial
+            transparent
+            opacity={0}
+            depthWrite={false}
+            depthTest={false}
+          />
+        </mesh>
+      )}
     </group>
   );
 }

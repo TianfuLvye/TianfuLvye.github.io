@@ -243,26 +243,7 @@ function Building({
       ref={groupRef}
       position={[placement.position[0], 0, placement.position[2]]}
     >
-      <group
-        rotation={[0, placement.rotation, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick();
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          onDoubleClick();
-        }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHover(true);
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-          setHover(false);
-          document.body.style.cursor = '';
-        }}
-      >
+      <group rotation={[0, placement.rotation, 0]}>
         <GlTFModel
           url={buildingDef.url}
           footprint={buildingDef.footprint * BUILDING_FOOTPRINT_SCALE}
@@ -270,6 +251,25 @@ function Building({
           uniformScale
           yOffset={buildingDef.yOffset}
           emphasized={emphasize}
+          interactive
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onDoubleClick();
+          }}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHover(true);
+            document.body.style.cursor = 'pointer';
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            setHover(false);
+            document.body.style.cursor = '';
+          }}
         />
       </group>
 
