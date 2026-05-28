@@ -1,126 +1,152 @@
 import { useMemo } from 'react';
+import { Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { colorForTag } from '../lib/tag-bridges';
 import type { BuildingPlacement } from '../lib/layout';
-import { rngFor, rangeFrom } from '../lib/random';
+import {
+  BASE_Y,
+  buildBridgeMeshSpec,
+  buildPlankGeometry,
+  ROPE_COLOR,
+  WOOD_DARK,
+  type BridgeMeshSpec,
+} from '../lib/plank-bridge';
 import type { TagBridge } from '../lib/types';
-
-const BASE_Y = 0.06;
-const Y_LIFT = [0, 0.02, 0.04] as const;
-const PLANK_COUNT = 10;
 
 interface Props {
   bridges: TagBridge[];
   buildings: BuildingPlacement[];
 }
 
-interface PlankSpec {
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: [number, number, number];
+const geometryCache = new Map<string, THREE.BufferGeometry>();
+
+function getPlankGeometry(seed: string): THREE.BufferGeometry {
+  let geo = geometryCache.get(seed);
+  if (!geo) {
+    geo = buildPlankGeometry(seed);
+    geometryCache.set(seed, geo);
+  }
+  return geo;
+}
+
+function StringerMesh({
+  points,
+  color,
+  yLift,
+  renderOrder,
+}: {
+  points: THREE.Vector3[];
   color: string;
+  yLift: number;
   renderOrder: number;
-}
-
-function bridgeCurve(
-  start: THREE.Vector3,
-  end: THREE.Vector3,
-  rng: () => number,
-): THREE.QuadraticBezierCurve3 {
-  const mid = start.clone().add(end).multiplyScalar(0.5);
-  const dx = end.x - start.x;
-  const dz = end.z - start.z;
-  const len = Math.hypot(dx, dz) || 1;
-  const nx = -dz / len;
-  const nz = dx / len;
-  const bulge = 0.15 + rng() * 0.25;
-  mid.y = BASE_Y + 0.04;
-  mid.x += nx * bulge;
-  mid.z += nz * bulge;
-  return new THREE.QuadraticBezierCurve3(start, mid, end);
-}
-
-function plankColor(bridge: TagBridge, index: number, total: number): string {
-  const { kind, tags } = bridge;
-  if (kind === 'single') return colorForTag(tags[0]);
-  if (kind === 'dual') {
-    const half = total / 2;
-    return index < half ? colorForTag(tags[0]) : colorForTag(tags[1]);
-  }
-  return colorForTag(tags[index % tags.length]);
-}
-
-function buildPlanks(
-  bridge: TagBridge,
-  start: THREE.Vector3,
-  end: THREE.Vector3,
-): PlankSpec[] {
-  const rng = rngFor(`plank:${bridge.sourceId}:${bridge.targetId}`);
-  const curve = bridgeCurve(start, end, rng);
-  const yLift = Y_LIFT[bridge.priority - 1];
-  const planks: PlankSpec[] = [];
-
-  for (let i = 0; i < PLANK_COUNT; i++) {
-    const t = (i + 0.5) / PLANK_COUNT;
-    const point = curve.getPoint(t);
-    const tangent = curve.getTangent(t).normalize();
-    const yaw = Math.atan2(tangent.x, tangent.z);
-    const wobble = rangeFrom(rng, -0.04, 0.04);
-    const width = 0.28 + rng() * 0.08;
-    const length = 0.42 + rng() * 0.1;
-
-    planks.push({
-      position: [point.x, point.y + yLift, point.z],
-      rotation: [0, yaw + wobble, rangeFrom(rng, -0.03, 0.03)],
-      scale: [width, 0.05, length],
-      color: plankColor(bridge, i, PLANK_COUNT),
-      renderOrder: bridge.priority,
-    });
-  }
-
-  return planks;
-}
-
-function TagBridge({ bridge, buildingsById }: {
-  bridge: TagBridge;
-  buildingsById: Map<string, BuildingPlacement>;
 }) {
-  const planks = useMemo(() => {
-    const a = buildingsById.get(bridge.sourceId);
-    const b = buildingsById.get(bridge.targetId);
-    if (!a || !b) return [];
+  const y = BASE_Y + 0.02 + yLift;
+  return (
+    <group>
+      {points.slice(0, -1).map((a, i) => {
+        const b = points[i + 1];
+        const mid = a.clone().add(b).multiplyScalar(0.5);
+        const len = a.distanceTo(b);
+        const yaw = Math.atan2(b.x - a.x, b.z - a.z);
+        return (
+          <mesh
+            key={i}
+            position={[mid.x, y, mid.z]}
+            rotation={[0, yaw, 0]}
+            renderOrder={renderOrder}
+          >
+            <boxGeometry args={[0.09, 0.07, len * 1.02]} />
+            <meshStandardMaterial
+              color={color}
+              roughness={0.95}
+              metalness={0.01}
+              polygonOffset
+              polygonOffsetFactor={-renderOrder}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
 
-    const start = new THREE.Vector3(a.position[0], BASE_Y, a.position[2]);
-    const end = new THREE.Vector3(b.position[0], BASE_Y, b.position[2]);
-    return buildPlanks(bridge, start, end);
-  }, [bridge, buildingsById]);
-
-  if (planks.length === 0) return null;
+function TagBridgeMesh({ spec }: { spec: BridgeMeshSpec }) {
+  const { renderOrder, yLift } = spec;
 
   return (
     <group>
-      {planks.map((plank, i) => (
+      {spec.pilings.map((p, i) => (
         <mesh
-          key={i}
+          key={`p-${i}`}
+          position={[p.position[0], p.position[1] + p.height / 2, p.position[2]]}
+          renderOrder={renderOrder}
+        >
+          <boxGeometry args={[0.1, p.height, 0.1]} />
+          <meshStandardMaterial color={WOOD_DARK} roughness={1} />
+        </mesh>
+      ))}
+
+      {spec.stringers.map((s, i) => (
+        <StringerMesh
+          key={`s-${i}`}
+          points={s.points}
+          color={s.color}
+          yLift={yLift}
+          renderOrder={renderOrder}
+        />
+      ))}
+
+      {spec.planks.map((plank, i) => (
+        <mesh
+          key={`pl-${i}`}
           position={plank.position}
           rotation={plank.rotation}
-          scale={plank.scale}
-          renderOrder={plank.renderOrder}
+          geometry={getPlankGeometry(plank.geometrySeed)}
+          renderOrder={renderOrder}
         >
-          <boxGeometry args={[1, 1, 1]} />
           <meshStandardMaterial
             color={plank.color}
             roughness={0.92}
             metalness={0.02}
-            depthWrite={plank.renderOrder === 1}
+            depthWrite={renderOrder === 1}
             polygonOffset
-            polygonOffsetFactor={-plank.renderOrder}
-            polygonOffsetUnits={-plank.renderOrder}
+            polygonOffsetFactor={-renderOrder}
+            polygonOffsetUnits={-renderOrder}
           />
         </mesh>
       ))}
+
+      {spec.railingSegments.map((seg, i) => (
+        <Line
+          key={`r-${i}`}
+          points={seg.points}
+          color={ROPE_COLOR}
+          lineWidth={1}
+          renderOrder={renderOrder + 1}
+        />
+      ))}
     </group>
   );
+}
+
+function TagBridge({
+  bridge,
+  buildingsById,
+}: {
+  bridge: TagBridge;
+  buildingsById: Map<string, BuildingPlacement>;
+}) {
+  const spec = useMemo(() => {
+    const a = buildingsById.get(bridge.sourceId);
+    const b = buildingsById.get(bridge.targetId);
+    if (!a || !b) return null;
+
+    const start = new THREE.Vector3(a.position[0], BASE_Y, a.position[2]);
+    const end = new THREE.Vector3(b.position[0], BASE_Y, b.position[2]);
+    return buildBridgeMeshSpec(bridge, start, end);
+  }, [bridge, buildingsById]);
+
+  if (!spec) return null;
+  return <TagBridgeMesh spec={spec} />;
 }
 
 export default function TagBridgePaths({ bridges, buildings }: Props) {

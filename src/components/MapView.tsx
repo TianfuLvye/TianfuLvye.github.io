@@ -4,7 +4,12 @@ import { Html, OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ContinentData, NoteData, SortKey } from '../lib/types';
 import { placeBuildings, type BuildingPlacement } from '../lib/layout';
+import {
+  isNearBridgeCorridor,
+  sampleBridgeCorridor,
+} from '../lib/plank-bridge';
 import { rngFor, rangeFrom } from '../lib/random';
+import type { TagBridge } from '../lib/types';
 import { useWorld } from '../store';
 import TagBridgePaths from './TagBridgePaths';
 
@@ -108,7 +113,12 @@ export default function MapView({ continent, onOpenNote }: Props) {
       </mesh>
 
       {/* 一些装饰性的小树 / 灌木 */}
-      <Decorations continentId={continent.id} mapSize={MAP_SIZE} />
+      <Decorations
+        continentId={continent.id}
+        mapSize={MAP_SIZE}
+        bridges={continent.tagBridges}
+        buildings={buildings}
+      />
 
       {showTagPaths && continent.tagBridges.length > 0 && (
         <TagBridgePaths
@@ -322,11 +332,19 @@ function FloatingPattern({ y, hue }: { y: number; hue: number }) {
 function Decorations({
   continentId,
   mapSize,
+  bridges,
+  buildings,
 }: {
   continentId: string;
   mapSize: number;
+  bridges: TagBridge[];
+  buildings: BuildingPlacement[];
 }) {
-  // 用确定性随机散布树和石头
+  const corridor = useMemo(
+    () => sampleBridgeCorridor(bridges, buildings),
+    [bridges, buildings],
+  );
+
   const items = useMemo(() => {
     const rng = rngFor(`decor:${continentId}`);
     const half = mapSize / 2;
@@ -337,17 +355,22 @@ function Decorations({
       scale: number;
       hue: number;
     }> = [];
-    for (let i = 0; i < 28; i++) {
+    let attempts = 0;
+    while (arr.length < 28 && attempts < 240) {
+      attempts++;
+      const x = rangeFrom(rng, -half + 0.5, half - 0.5);
+      const z = rangeFrom(rng, -half + 0.5, half - 0.5);
+      if (isNearBridgeCorridor(x, z, corridor)) continue;
       arr.push({
         kind: rng() > 0.4 ? 'tree' : 'rock',
-        x: rangeFrom(rng, -half + 0.5, half - 0.5),
-        z: rangeFrom(rng, -half + 0.5, half - 0.5),
+        x,
+        z,
         scale: 0.5 + rng() * 0.5,
         hue: 90 + rng() * 40,
       });
     }
     return arr;
-  }, [continentId, mapSize]);
+  }, [continentId, mapSize, corridor]);
 
   return (
     <group>
