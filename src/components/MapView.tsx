@@ -3,8 +3,6 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { getBuilding } from '../config/building-catalog';
-import { pickDecorationId } from '../config/decoration-catalog';
-import type { DecorationId } from '../config/decoration-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
 import { placeBuildings, type BuildingPlacement } from '../lib/layout';
 import {
@@ -13,10 +11,9 @@ import {
   MAP_SIZE,
 } from '../lib/map-config';
 import {
-  isNearBridgeCorridor,
   sampleBridgeCorridor,
 } from '../lib/plank-bridge';
-import { rngFor, rangeFrom } from '../lib/random';
+import { placeDecorations } from '../lib/place-decorations';
 import type { TagBridge } from '../lib/types';
 import { useWorld } from '../store';
 import GlTFModel from './GlTFModel';
@@ -353,33 +350,16 @@ function Decorations({
     [bridges, buildings],
   );
 
-  const items = useMemo(() => {
-    const rng = rngFor(`decor:${continentId}`);
-    const half = mapSize / 2;
-    const arr: Array<{
-      decorId: DecorationId;
-      x: number;
-      z: number;
-      scale: number;
-      rotation: number;
-    }> = [];
-    let attempts = 0;
-    const target = Math.round(40 * (mapSize / 18));
-    while (arr.length < target && attempts < 320) {
-      attempts++;
-      const x = rangeFrom(rng, -half + 0.5, half - 0.5);
-      const z = rangeFrom(rng, -half + 0.5, half - 0.5);
-      if (isNearBridgeCorridor(x, z, corridor)) continue;
-      arr.push({
-        decorId: pickDecorationId(rng),
-        x,
-        z,
-        scale: 1,
-        rotation: rng() * Math.PI * 2,
-      });
-    }
-    return arr;
-  }, [continentId, mapSize, corridor]);
+  const items = useMemo(
+    () =>
+      placeDecorations({
+        continentId,
+        mapSize,
+        buildings,
+        bridgeCorridor: corridor,
+      }),
+    [continentId, mapSize, buildings, corridor],
+  );
 
   return (
     <group>
@@ -389,7 +369,7 @@ function Decorations({
           decorId={it.decorId}
           scale={it.scale}
           rotation={it.rotation}
-          position={[it.x, 0, it.z]}
+          position={it.position}
         />
       ))}
     </group>

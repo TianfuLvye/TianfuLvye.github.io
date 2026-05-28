@@ -1,0 +1,419 @@
+{
+  "source_file": "Tree Assets.glb",
+  "split_method": "Grouped meshes by shared mesh-name prefix, then exported each group as an individual centered GLB.",
+  "coordinate_adjustment": "Each asset is centered on X/Z and moved so its lowest Y is 0.",
+  "asset_count": 18,
+  "assets": [
+    {
+      "file": "tree_01_mesh1114869579.glb",
+      "source_group": "mesh1114869579",
+      "mesh_parts": [
+        "mesh1114869579",
+        "mesh1114869579_1"
+      ],
+      "original_bounds_min": [
+        0.155999,
+        -0.202769,
+        -0.420196
+      ],
+      "original_bounds_max": [
+        0.390562,
+        0.107258,
+        -0.252552
+      ],
+      "size_xyz": [
+        0.234563,
+        0.310027,
+        0.167644
+      ]
+    },
+    {
+      "file": "tree_02_mesh373735999.glb",
+      "source_group": "mesh373735999",
+      "mesh_parts": [
+        "mesh373735999",
+        "mesh373735999_1"
+      ],
+      "original_bounds_min": [
+        -0.278732,
+        -0.193363,
+        -0.411128
+      ],
+      "original_bounds_max": [
+        0.036686,
+        0.222015,
+        -0.240002
+      ],
+      "size_xyz": [
+        0.315419,
+        0.415377,
+        0.171126
+      ]
+    },
+    {
+      "file": "tree_03_mesh1309878107.glb",
+      "source_group": "mesh1309878107",
+      "mesh_parts": [
+        "mesh1309878107"
+      ],
+      "original_bounds_min": [
+        -0.082414,
+        -0.215411,
+        -0.35876
+      ],
+      "original_bounds_max": [
+        0.051618,
+        -0.11684,
+        -0.190963
+      ],
+      "size_xyz": [
+        0.134032,
+        0.098571,
+        0.167798
+      ]
+    },
+    {
+      "file": "tree_04_mesh1932686607.glb",
+      "source_group": "mesh1932686607",
+      "mesh_parts": [
+        "mesh1932686607",
+        "mesh1932686607_1"
+      ],
+      "original_bounds_min": [
+        0.295167,
+        -0.205085,
+        -0.230163
+      ],
+      "original_bounds_max": [
+        0.484535,
+        0.024902,
+        -0.055415
+      ],
+      "size_xyz": [
+        0.189368,
+        0.229987,
+        0.174748
+      ]
+    },
+    {
+      "file": "tree_05_mesh601634601.glb",
+      "source_group": "mesh601634601",
+      "mesh_parts": [
+        "mesh601634601"
+      ],
+      "original_bounds_min": [
+        -0.284797,
+        0.428785,
+        -0.205236
+      ],
+      "original_bounds_max": [
+        -0.002686,
+        0.608015,
+        -0.055602
+      ],
+      "size_xyz": [
+        0.282111,
+        0.179229,
+        0.149634
+      ]
+    },
+    {
+      "file": "tree_06_mesh1206298165.glb",
+      "source_group": "mesh1206298165",
+      "mesh_parts": [
+        "mesh1206298165",
+        "mesh1206298165_1"
+      ],
+      "original_bounds_min": [
+        0.070949,
+        -0.212226,
+        -0.191813
+      ],
+      "original_bounds_max": [
+        0.256249,
+        0.154947,
+        -0.029855
+      ],
+      "size_xyz": [
+        0.1853,
+        0.367173,
+        0.161959
+      ]
+    },
+    {
+      "file": "tree_07_mesh874600975.glb",
+      "source_group": "mesh874600975",
+      "mesh_parts": [
+        "mesh874600975",
+        "mesh874600975_1",
+        "mesh874600975_2"
+      ],
+      "original_bounds_min": [
+        -0.292646,
+        -0.200614,
+        -0.183204
+      ],
+      "original_bounds_max": [
+        -0.089093,
+        0.17088,
+        0.009348
+      ],
+      "size_xyz": [
+        0.203553,
+        0.371494,
+        0.192552
+      ]
+    },
+    {
+      "file": "tree_08_mesh100681590.glb",
+      "source_group": "mesh100681590",
+      "mesh_parts": [
+        "mesh100681590",
+        "mesh100681590_1"
+      ],
+      "original_bounds_min": [
+        0.41106,
+        -0.201814,
+        -0.052829
+      ],
+      "original_bounds_max": [
+        0.574176,
+        0.142677,
+        0.111517
+      ],
+      "size_xyz": [
+        0.163116,
+        0.34449,
+        0.164346
+      ]
+    },
+    {
+      "file": "tree_09_mesh833803046.glb",
+      "source_group": "mesh833803046",
+      "mesh_parts": [
+        "mesh833803046",
+        "mesh833803046_1"
+      ],
+      "original_bounds_min": [
+        -0.309153,
+        -0.269616,
+        -0.379064
+      ],
+      "original_bounds_max": [
+        0.550847,
+        -0.199615,
+        0.450936
+      ],
+      "size_xyz": [
+        0.86,
+        0.07,
+        0.83
+      ]
+    },
+    {
+      "file": "tree_10_mesh1145296422.glb",
+      "source_group": "mesh1145296422",
+      "mesh_parts": [
+        "mesh1145296422",
+        "mesh1145296422_1"
+      ],
+      "original_bounds_min": [
+        0.211704,
+        -0.217884,
+        -0.014017
+      ],
+      "original_bounds_max": [
+        0.34924,
+        0.171791,
+        0.12749
+      ],
+      "size_xyz": [
+        0.137535,
+        0.389675,
+        0.141506
+      ]
+    },
+    {
+      "file": "tree_11_mesh546125134.glb",
+      "source_group": "mesh546125134",
+      "mesh_parts": [
+        "mesh546125134",
+        "mesh546125134_1"
+      ],
+      "original_bounds_min": [
+        -0.07957,
+        -0.205193,
+        -0.034589
+      ],
+      "original_bounds_max": [
+        0.110614,
+        0.157876,
+        0.153627
+      ],
+      "size_xyz": [
+        0.190185,
+        0.363069,
+        0.188216
+      ]
+    },
+    {
+      "file": "tree_12_mesh1735826486.glb",
+      "source_group": "mesh1735826486",
+      "mesh_parts": [
+        "mesh1735826486"
+      ],
+      "original_bounds_min": [
+        0.116456,
+        -0.214654,
+        0.058776
+      ],
+      "original_bounds_max": [
+        0.237102,
+        -0.137629,
+        0.169132
+      ],
+      "size_xyz": [
+        0.120646,
+        0.077025,
+        0.110356
+      ]
+    },
+    {
+      "file": "tree_13_mesh2102696020.glb",
+      "source_group": "mesh2102696020",
+      "mesh_parts": [
+        "mesh2102696020",
+        "mesh2102696020_1"
+      ],
+      "original_bounds_min": [
+        -0.321204,
+        -0.215861,
+        0.06833
+      ],
+      "original_bounds_max": [
+        -0.082691,
+        0.092463,
+        0.306922
+      ],
+      "size_xyz": [
+        0.238513,
+        0.308324,
+        0.238592
+      ]
+    },
+    {
+      "file": "tree_14_mesh2112331936.glb",
+      "source_group": "mesh2112331936",
+      "mesh_parts": [
+        "mesh2112331936",
+        "mesh2112331936_1"
+      ],
+      "original_bounds_min": [
+        0.077056,
+        -0.217933,
+        0.132314
+      ],
+      "original_bounds_max": [
+        0.264863,
+        0.166662,
+        0.319614
+      ],
+      "size_xyz": [
+        0.187807,
+        0.384594,
+        0.1873
+      ]
+    },
+    {
+      "file": "tree_15_mesh1795976569.glb",
+      "source_group": "mesh1795976569",
+      "mesh_parts": [
+        "mesh1795976569"
+      ],
+      "original_bounds_min": [
+        0.158251,
+        0.449956,
+        0.13586
+      ],
+      "original_bounds_max": [
+        0.537597,
+        0.711443,
+        0.340929
+      ],
+      "size_xyz": [
+        0.379346,
+        0.261487,
+        0.205069
+      ]
+    },
+    {
+      "file": "tree_16_mesh720331588.glb",
+      "source_group": "mesh720331588",
+      "mesh_parts": [
+        "mesh720331588",
+        "mesh720331588_1"
+      ],
+      "original_bounds_min": [
+        0.30499,
+        -0.202113,
+        0.223404
+      ],
+      "original_bounds_max": [
+        0.531907,
+        0.239818,
+        0.448565
+      ],
+      "size_xyz": [
+        0.226917,
+        0.441931,
+        0.225161
+      ]
+    },
+    {
+      "file": "tree_17_mesh1958235271.glb",
+      "source_group": "mesh1958235271",
+      "mesh_parts": [
+        "mesh1958235271",
+        "mesh1958235271_1"
+      ],
+      "original_bounds_min": [
+        -0.135525,
+        -0.20062,
+        0.237284
+      ],
+      "original_bounds_max": [
+        0.091051,
+        0.178645,
+        0.46274
+      ],
+      "size_xyz": [
+        0.226575,
+        0.379265,
+        0.225455
+      ]
+    },
+    {
+      "file": "tree_18_mesh1610579876.glb",
+      "source_group": "mesh1610579876",
+      "mesh_parts": [
+        "mesh1610579876",
+        "mesh1610579876_1"
+      ],
+      "original_bounds_min": [
+        -0.294312,
+        -0.211071,
+        0.302025
+      ],
+      "original_bounds_max": [
+        -0.140016,
+        0.145912,
+        0.446561
+      ],
+      "size_xyz": [
+        0.154296,
+        0.356983,
+        0.144536
+      ]
+    }
+  ]
+}
