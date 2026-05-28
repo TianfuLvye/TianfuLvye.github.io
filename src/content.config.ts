@@ -8,6 +8,8 @@ const notes = defineCollection({
     date: z.coerce.date().optional(),
     summary: z.string().optional(),
     tags: z.array(z.string()).optional(),
+    /** GLB building id from building-catalog (overrides auto pick) */
+    building: z.string().optional(),
   }),
 });
 

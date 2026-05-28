@@ -34,6 +34,7 @@ export function buildWorldTree(entries: CollectionEntry<'notes'>[]): WorldTree {
       summary: entry.data.summary,
       tags: entry.data.tags ?? [],
       continentId,
+      building: entry.data.building,
     };
 
     if (!groups.has(continentId)) groups.set(continentId, []);

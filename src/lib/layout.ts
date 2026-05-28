@@ -1,3 +1,4 @@
+import { pickBuildingModel } from './pick-building-model';
 import { rngFor, rangeFrom } from './random';
 import type { ContinentData, NoteData } from './types';
 
@@ -83,6 +84,8 @@ export interface BuildingPlacement {
   roof: number;
   /** 围绕 Y 轴的旋转 */
   rotation: number;
+  /** GLB 建筑模型 id */
+  modelId: string;
 }
 
 /**
@@ -127,6 +130,7 @@ export function placeBuildings(
       hue: rng() * 360,
       roof: rng(),
       rotation: rng() * Math.PI * 2,
+      modelId: pickBuildingModel(note),
     });
   }
 

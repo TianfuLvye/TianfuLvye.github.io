@@ -2,7 +2,10 @@ import { useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
-import type { ContinentData, NoteData, SortKey } from '../lib/types';
+import { getBuilding } from '../config/building-catalog';
+import { pickDecorationId } from '../config/decoration-catalog';
+import type { DecorationId } from '../config/decoration-catalog';
+import type { ContinentData, NoteData } from '../lib/types';
 import { placeBuildings, type BuildingPlacement } from '../lib/layout';
 import {
   isNearBridgeCorridor,
@@ -11,6 +14,9 @@ import {
 import { rngFor, rangeFrom } from '../lib/random';
 import type { TagBridge } from '../lib/types';
 import { useWorld } from '../store';
+import GlTFModel from './GlTFModel';
+import DecorationModel from './DecorationModel';
+import MapModelPreload from './MapModelPreload';
 import TagBridgePaths from './TagBridgePaths';
 
 const MAP_SIZE = 18;
@@ -76,6 +82,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
 
   return (
     <>
+      <MapModelPreload buildings={buildings} />
       <OrthographicCamera
         makeDefault
         zoom={48}
@@ -219,8 +226,10 @@ function Building({
   });
 
   const emphasize = hover || isHovered || isSelected;
-  const color = `hsl(${placement.hue}, 28%, ${emphasize ? 62 : 52}%)`;
-  const roofColor = `hsl(${(placement.hue + 18) % 360}, 32%, ${emphasize ? 48 : 40}%)`;
+  const buildingDef = getBuilding(placement.modelId);
+  const labelLift = placement.scale[1] * 0.55 + 0.35;
+
+  if (!buildingDef) return null;
 
   return (
     <group
@@ -228,9 +237,7 @@ function Building({
       position={[placement.position[0], 0, placement.position[2]]}
     >
       <group
-        position={[0, placement.position[1], 0]}
         rotation={[0, placement.rotation, 0]}
-        scale={placement.scale}
         onClick={(e) => {
           e.stopPropagation();
           onClick();
@@ -249,23 +256,13 @@ function Building({
           document.body.style.cursor = '';
         }}
       >
-        {/* 主体 */}
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial
-            color={color}
-            roughness={0.85}
-            emissive={emphasize ? color : '#000'}
-            emissiveIntensity={emphasize ? 0.18 : 0}
-          />
-        </mesh>
-        {/* 屋顶 */}
-        {placement.roof > 0.5 && (
-          <mesh position={[0, 0.55, 0]} castShadow>
-            <coneGeometry args={[0.78, 0.5, 4]} />
-            <meshStandardMaterial color={roofColor} roughness={0.8} />
-          </mesh>
-        )}
+        <GlTFModel
+          url={buildingDef.url}
+          footprint={buildingDef.footprint}
+          scale={placement.scale}
+          yOffset={buildingDef.yOffset}
+          emphasized={emphasize}
+        />
       </group>
 
       {/* sort_by 模式下，漂浮块下方的 pattern 浮空陆地 */}
@@ -286,9 +283,9 @@ function Building({
       )}
 
       {/* 普通悬停 / 选中：浮出标签 */}
-      {(emphasize) && !isFloating && (
+      {emphasize && !isFloating && (
         <Html
-          position={[0, placement.position[1] + placement.scale[1] / 2 + 0.4, 0]}
+          position={[0, labelLift, 0]}
           center
           distanceFactor={htmlDistanceFactor}
           style={{ pointerEvents: 'none' }}
@@ -352,24 +349,25 @@ function Decorations({
     const rng = rngFor(`decor:${continentId}`);
     const half = mapSize / 2;
     const arr: Array<{
-      kind: 'tree' | 'rock';
+      decorId: DecorationId;
       x: number;
       z: number;
       scale: number;
-      hue: number;
+      rotation: number;
     }> = [];
     let attempts = 0;
-    while (arr.length < 28 && attempts < 240) {
+    const target = 40;
+    while (arr.length < target && attempts < 320) {
       attempts++;
       const x = rangeFrom(rng, -half + 0.5, half - 0.5);
       const z = rangeFrom(rng, -half + 0.5, half - 0.5);
       if (isNearBridgeCorridor(x, z, corridor)) continue;
       arr.push({
-        kind: rng() > 0.4 ? 'tree' : 'rock',
+        decorId: pickDecorationId(rng),
         x,
         z,
-        scale: 0.5 + rng() * 0.5,
-        hue: 90 + rng() * 40,
+        scale: 0.55 + rng() * 0.4,
+        rotation: rng() * Math.PI * 2,
       });
     }
     return arr;
@@ -377,28 +375,15 @@ function Decorations({
 
   return (
     <group>
-      {items.map((it, i) =>
-        it.kind === 'tree' ? (
-          <group key={i} position={[it.x, 0, it.z]} scale={it.scale}>
-            <mesh position={[0, 0.18, 0]}>
-              <cylinderGeometry args={[0.05, 0.08, 0.35, 6]} />
-              <meshStandardMaterial color="#6b4a2a" roughness={1} />
-            </mesh>
-            <mesh position={[0, 0.55, 0]}>
-              <coneGeometry args={[0.25, 0.55, 7]} />
-              <meshStandardMaterial
-                color={`hsl(${it.hue}, 38%, 32%)`}
-                roughness={0.95}
-              />
-            </mesh>
-          </group>
-        ) : (
-          <mesh key={i} position={[it.x, 0.08, it.z]} scale={it.scale}>
-            <dodecahedronGeometry args={[0.18, 0]} />
-            <meshStandardMaterial color="#8a7e6a" roughness={1} />
-          </mesh>
-        ),
-      )}
+      {items.map((it, i) => (
+        <DecorationModel
+          key={`${it.decorId}-${i}`}
+          decorId={it.decorId}
+          scale={it.scale}
+          rotation={it.rotation}
+          position={[it.x, 0, it.z]}
+        />
+      ))}
     </group>
   );
 }

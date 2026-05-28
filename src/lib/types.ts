@@ -15,6 +15,8 @@ export interface NoteData {
   tags: string[];
   /** 所属大陆 = 第一层文件夹名 */
   continentId: string;
+  /** 可选：强制使用某建筑模型 id */
+  building?: string;
 }
 
 export type TagBridgeKind = 'single' | 'dual' | 'rainbow';

@@ -34,8 +34,14 @@ npm run preview      # 预览构建
 ├── scripts/
 │   └── sync-note-attachments.mjs  # dev/build 前同步 attachments
 ├── public/
-│   └── images/                # 静态资源（如缺失图片占位）
+│   ├── images/                # 静态资源（如缺失图片占位）
+│   └── models/                # GLB 建筑与装饰（见 ATTRIBUTION.md）
+│       ├── buildings/
+│       └── decorations/
 └── src/
+    ├── config/
+    │   ├── building-catalog.ts   # 建筑 GLB 注册（体量档、权重）
+    │   └── decoration-catalog.ts # 装饰 GLB 注册
     ├── content.config.ts      # content collection schema
     ├── env.d.ts
     ├── content/notes/
@@ -49,7 +55,10 @@ npm run preview      # 预览构建
     ├── components/
     │   ├── World.tsx          # 总入口：相机 / 视图状态 / 转场
     │   ├── Globe.tsx          # 3D 地球 + 大陆长方体
-    │   ├── MapView.tsx        # 2.5D 正交地图 + 建筑 + 装饰物
+    │   ├── MapView.tsx        # 2.5D 正交地图 + GLB 建筑 + 装饰
+    │   ├── GlTFModel.tsx      # GLB 加载 / 归一化 / 高亮
+    │   ├── DecorationModel.tsx
+    │   ├── MapModelPreload.tsx
     │   ├── TagBridgePaths.tsx # tag 木板路 / 彩虹桥 3D 渲染
     │   ├── CloudTransition.tsx# globe ↔ map 云朵转场
     │   ├── DetailsPanel.tsx   # 右侧滑出详情
@@ -63,6 +72,7 @@ npm run preview      # 预览构建
     │   ├── random.ts          # mulberry32 + FNV-1a hash
     │   ├── build-tree.ts      # content collection → WorldTree + tagBridges
     │   ├── layout.ts          # 球面 / 平面建筑布局
+    │   ├── pick-building-model.ts  # 建筑 GLB 选型（frontmatter → 体量 → 种子）
     │   ├── tag-bridges.ts     # tag 生成树选边（距离、度数、桥型）
     │   ├── plank-bridge.ts    # 桥曲线、木板几何、桥廊采样
     │   ├── note-metadata.ts   # title / date 解析
@@ -89,7 +99,9 @@ npm run preview      # 预览构建
 - 右侧文件列表（hover → 建筑高亮）
 - sort_by 模式：所有建筑升空成浮岛，下挂铭牌，pattern 承托
 - ESC 返回 / 关闭面板
-- 装饰物（树、石头）随机散布，种子稳定
+- 低多边形 GLB 建筑与装饰（树、草、花、石头等），全局模型池；建筑按文件体量分档 + 种子稳定随机
+- 笔记 frontmatter 可选 `building: <id>` 指定建筑模型（见 `src/config/building-catalog.ts`）
+- 装饰物随机散布（约 40/大陆），种子稳定
 - **tag 木板路**：同大陆内按 tag 生成树连通（k−1 条桥）；优先连近距离、每建筑 ≤3 条边；共享 2/3+ tag 为双色/彩虹桥；固定宽度等距木板（数量随桥长）；纵梁/桩；Sidebar「tag paths」开关
 
 ## 留待之后（未做）
@@ -97,7 +109,6 @@ npm run preview      # 预览构建
 - 子地图（子文件夹）—— MVP 内未实现
 - 文章 wikilink 在地图上以路径连接（tag 木板路已实现）
 - 移动端触控优化
-- 真正的低多边形 GLTF 模型（目前是基础几何体）
 - WebGL 后处理：grain / vignette / bloom
 - markdown 渲染插件（代码高亮、表格、脚注 等）
 
