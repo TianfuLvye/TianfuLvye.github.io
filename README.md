@@ -30,60 +30,66 @@ npm run preview      # 预览构建
 
 ```
 .
-├── astro.config.mjs           # Astro + React；remark/rehype（Obsidian、KaTeX）
+├── astro.config.mjs              # Astro + React；remark/rehype（Obsidian、KaTeX）
 ├── scripts/
-│   └── sync-note-attachments.mjs  # dev/build 前同步 attachments
+│   └── sync-note-attachments.mjs # dev/build 前同步 attachments
 ├── public/
-│   ├── images/                # 静态资源（如缺失图片占位）
-│   └── models/                # GLB 建筑与装饰（见 ATTRIBUTION.md）
+│   ├── images/                   # 静态资源（如缺失图片占位）
+│   └── models/
+│       ├── ATTRIBUTION.md        # GLB 来源说明
 │       ├── buildings/
 │       └── decorations/
 └── src/
     ├── config/
-    │   ├── building-catalog.ts   # 建筑 GLB 注册（体量档、权重）
+    │   ├── building-catalog.ts   # 建筑 GLB 注册（体量档、权重、footprint）
     │   └── decoration-catalog.ts # 装饰 GLB 注册
-    ├── content.config.ts      # content collection schema
+    ├── content.config.ts         # content collection schema（含可选 building）
     ├── env.d.ts
     ├── content/notes/
-    │   ├── attachments/       # 全库图片/PDF（Obsidian ![[...]]，不参与 3D 地图）
-    │   ├── travel/            # 大陆 = 第一层文件夹
+    │   ├── attachments/          # 全库图片/PDF（Obsidian ![[...]]，不参与 3D 地图）
+    │   ├── travel/               # 大陆 = 第一层文件夹
     │   ├── tech/
     │   ├── journal/
     │   ├── thoughts/
     │   ├── test/
-    │   └── Classnotes/        # 可含子文件夹（如 z大三/）
+    │   └── Classnotes/           # 可含子文件夹（如 z大三/）
     ├── components/
-    │   ├── World.tsx          # 总入口：相机 / 视图状态 / 转场
-    │   ├── Globe.tsx          # 3D 地球 + 大陆长方体
-    │   ├── MapView.tsx        # 2.5D 正交地图 + GLB 建筑 + 装饰
-    │   ├── GlTFModel.tsx      # GLB 加载 / 归一化 / 高亮
+    │   ├── World.tsx             # 总入口：Canvas / 视图切换 / 转场
+    │   ├── Globe.tsx             # 3D 地球 + 大陆长方体
+    │   ├── MapView.tsx           # 2.5D 正交地图、灯光、建筑与装饰
+    │   ├── GlTFModel.tsx         # GLB 加载、归一化缩放、高亮、pick 体积
     │   ├── DecorationModel.tsx
-    │   ├── MapModelPreload.tsx
-    │   ├── TagBridgePaths.tsx # tag 木板路 / 彩虹桥 3D 渲染
-    │   ├── CloudTransition.tsx# globe ↔ map 云朵转场
-    │   ├── DetailsPanel.tsx   # 右侧滑出详情
-    │   ├── Sidebar.tsx        # 文件列表 + sort + tag paths 开关
-    │   └── HUD.tsx            # 顶部面包屑 + 帮助
+    │   ├── MapModelPreload.tsx   # 按大陆预加载 GLB
+    │   ├── TagBridgePaths.tsx    # tag 木板路 / 彩虹桥 3D
+    │   ├── BridgeTagInfoDock.tsx # 选中桥后底部 tag 信息条
+    │   ├── CloudTransition.tsx   # globe ↔ map 云朵转场
+    │   ├── DetailsPanel.tsx      # 右侧滑出详情
+    │   ├── Sidebar.tsx           # 文件列表、sort、tag paths 开关
+    │   └── HUD.tsx               # 顶部面包屑 + 帮助
     ├── layouts/
-    │   ├── BaseLayout.astro   # html shell + 字体
-    │   └── NoteLayout.astro   # 单篇 note 阅读页
+    │   ├── BaseLayout.astro
+    │   └── NoteLayout.astro
     ├── lib/
-    │   ├── types.ts           # WorldTree / NoteData / TagBridge …
-    │   ├── random.ts          # mulberry32 + FNV-1a hash
-    │   ├── build-tree.ts      # content collection → WorldTree + tagBridges
-    │   ├── layout.ts          # 球面 / 平面建筑布局
-    │   ├── pick-building-model.ts  # 建筑 GLB 选型（frontmatter → 体量 → 种子）
-    │   ├── tag-bridges.ts     # tag 生成树选边（距离、度数、桥型）
-    │   ├── plank-bridge.ts    # 桥曲线、木板几何、桥廊采样
-    │   ├── note-metadata.ts   # title / date 解析
-    │   ├── content-paths.ts   # notes 根路径、attachments 常量
-    │   ├── remark-obsidian-images.ts   # ![[image]] / PDF 嵌入
-    │   └── remark-obsidian-wikilinks.ts # [[wikilink]] → 站内链接
+    │   ├── types.ts
+    │   ├── map-config.ts         # 地图尺寸、间距、建筑/装饰缩放系数
+    │   ├── note-size.ts          # 字数分档、侧栏字数格式化
+    │   ├── random.ts             # mulberry32 + FNV-1a 种子
+    │   ├── build-tree.ts         # content → WorldTree + tagBridges
+    │   ├── layout.ts             # 球面大陆 / 平面建筑摆放
+    │   ├── pick-building-model.ts
+    │   ├── tag-bridges.ts        # tag 树选边、桥型
+    │   ├── tag-bridge-animation.ts
+    │   ├── plank-bridge.ts       # 桥曲线、木板几何、桥廊 hit
+    │   ├── bridge-tag-info.ts    # 桥选中后 tag 分组文案
+    │   ├── note-metadata.ts
+    │   ├── content-paths.ts
+    │   ├── remark-obsidian-images.ts
+    │   └── remark-obsidian-wikilinks.ts
     ├── pages/
-    │   ├── index.astro        # 3D 世界
-    │   └── notes/[...slug].astro  # 单篇 markdown 路由
-    ├── store.ts               # zustand 视图状态
-    └── styles/global.css      # 全局美学：老地图 / 探险家手册
+    │   ├── index.astro           # 3D 世界
+    │   └── notes/[...slug].astro
+    ├── store.ts                  # zustand：视图、选中笔记/桥、tag paths
+    └── styles/global.css
 ```
 
 ## 已实现（MVP 范围）
@@ -92,16 +98,15 @@ npm run preview      # 预览构建
 - 拖拽旋转 / 鼠标滚轮缩放
 - 单击大陆显示名称气泡 + 笔记计数
 - 双击大陆 → 云朵转场 → 进入 2.5D 地图
-- 2.5D 正交投影地图，建筑大小 = 文件大小（log 压缩）
-- 建筑位置基于 `(continentId + noteId)` 哈希种子，**永远稳定**
+- 2.5D 正交投影地图；建筑位置由 `(continentId + noteId)` 种子摆放，**永远稳定**
+- **建筑样式（用哪座 GLB）**：frontmatter `building: <id>` 优先；否则按**正文字数**分档（不足 200 → small；200–2999 → medium；3000 及以上 → large），在对应档的模型池里按 `note.id` 种子随机选一个（见 `building-catalog.ts`）
+- **建筑在地图上的大小**：正文字数越大，均匀缩放越大；再乘以 catalog 里的 `footprint` 与全局系数（`map-config.ts`）
 - 单击建筑 → 右侧详情面板滑出
 - 双击建筑 → 跳转到 markdown 阅读页
-- 右侧文件列表（hover → 建筑高亮）
+- 右侧文件列表显示**字数**；hover 文件名 → 建筑高亮
 - sort_by 模式：所有建筑升空成浮岛，下挂铭牌，pattern 承托
 - ESC 返回 / 关闭面板
-- 低多边形 GLB 建筑与装饰（树、草、花、石头等），全局模型池；建筑按文件体量分档 + 种子稳定随机
-- 笔记 frontmatter 可选 `building: <id>` 指定建筑模型（见 `src/config/building-catalog.ts`）
-- 装饰物随机散布（约 40/大陆），种子稳定
+- 低多边形 GLB 装饰（树、草、花、石头等），按大陆种子散布；种类与 footprint 见 `decoration-catalog.ts`
 - **tag 木板路**：同大陆内按 tag 生成树连通（k−1 条桥）；优先连近距离、每建筑 ≤3 条边；共享 2/3+ tag 为双色/彩虹桥；固定宽度等距木板（数量随桥长）；纵梁/桩；Sidebar「tag paths」开关
 
 ## 留待之后（未做）
@@ -118,8 +123,9 @@ npm run preview      # 预览构建
 | 视图      | 鼠标                                  | 键盘          |
 | ------- | ----------------------------------- | ----------- |
 | Globe   | 拖拽 = 旋转；单击大陆 = 聚焦；双击大陆 = 进入         | —           |
-| Map     | 拖拽 = 平移；滚轮 = 缩放；单击建筑 = 详情；双击建筑 = 打开 | ESC = 返回/关闭 |
-| Sidebar | hover 文件名 → 建筑高亮；点 sort 切换排序        | —           |
+| Map     | 拖拽 = 平移；滚轮 = 缩放；单击建筑 = 详情；双击建筑 = 打开；单击空地 = 取消选中 | ESC = 返回/关闭 |
+| Map（tag paths 开） | 悬停桥身 = 高亮桥；单击桥 = 选中，底部 dock 显示共享 tag；dock 内 hover 某 tag 行 = 高亮该 tag 下所有建筑；再点同一座桥或空地 = 取消选中 | —           |
+| Sidebar | hover 文件名 → 建筑高亮；点 sort 切换排序；**tag paths** = 显示/隐藏木板桥 | —           |
 
 
 ## 美学说明
