@@ -36,6 +36,9 @@ export default function TagRoadTiles({ segments, activeTags }: Props) {
               footprint={def.footprint}
               yOffset={ROAD_TILE_Y_OFFSET}
               uniformScale
+              cloneMaterials={false}
+              castShadow={false}
+              receiveShadow={false}
             />
           </group>
         );

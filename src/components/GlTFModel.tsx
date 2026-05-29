@@ -3,12 +3,17 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import type { DecorFitExtent } from '../config/decoration-catalog';
+import { computeGltfLayout, measureSceneBounds } from '../lib/gltf-layout';
 
 export interface GlTFModelProps {
   url: string;
   footprint: number;
   scale?: [number, number, number];
   yOffset?: number;
+  /** Deep-clone materials so per-instance emissive/tint is isolated (buildings). */
+  cloneMaterials?: boolean;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
   emphasized?: boolean;
   /** Tint mesh color (roads, etc.). */
   tintColor?: string;
@@ -63,13 +68,18 @@ function applyTint(
   });
 }
 
-/** Deep-clone scene nodes; give each mesh its own materials (useGLTF cache shares them). */
-function cloneSceneWithMaterials(scene: THREE.Object3D): THREE.Object3D {
+function cloneScene(
+  scene: THREE.Object3D,
+  cloneMaterials: boolean,
+  castShadow: boolean,
+  receiveShadow: boolean,
+): THREE.Object3D {
   const root = scene.clone(true);
   root.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return;
-    child.castShadow = true;
-    child.receiveShadow = true;
+    child.castShadow = castShadow;
+    child.receiveShadow = receiveShadow;
+    if (!cloneMaterials) return;
     if (Array.isArray(child.material)) {
       child.material = child.material.map((m) => m.clone());
     } else if (child.material) {
@@ -87,20 +97,14 @@ function disableVisualRaycast(root: THREE.Object3D) {
   });
 }
 
-function extentFromSize(
-  size: THREE.Vector3,
-  fitExtent: DecorFitExtent,
-): number {
-  if (fitExtent === 'y') return size.y;
-  if (fitExtent === 'max') return Math.max(size.x, size.y, size.z);
-  return Math.max(size.x, size.z);
-}
-
 export default function GlTFModel({
   url,
   footprint,
   scale = [1, 1, 1],
   yOffset = 0,
+  cloneMaterials = true,
+  castShadow = true,
+  receiveShadow = true,
   emphasized = false,
   tintColor,
   emissiveIntensity = 0.1,
@@ -115,58 +119,32 @@ export default function GlTFModel({
   onPointerOut,
 }: GlTFModelProps) {
   const { scene } = useGLTF(url);
-  const scaleX = scale[0];
-  const scaleY = scale[1];
-  const scaleZ = scale[2];
 
-  /** Bbox from a fresh local-space clone — never re-measure after parent scale is applied. */
-  const { clone, localSize, localMin, localMax } = useMemo(() => {
-    const c = cloneSceneWithMaterials(scene);
-    const box = new THREE.Box3().setFromObject(c);
-    return {
-      clone: c,
-      localSize: box.getSize(new THREE.Vector3()),
-      localMin: box.min.clone(),
-      localMax: box.max.clone(),
-    };
-  }, [scene]);
-
-  const layout = useMemo(() => {
-    const extent = extentFromSize(localSize, fitExtent);
-    const base = footprint / Math.max(extent, 0.001);
-
-    let sx: number;
-    let sy: number;
-    let sz: number;
-
-    if (uniformScale) {
-      let s = base * scaleX;
-      if (scaleMin != null) s = Math.max(s, scaleMin);
-      if (scaleMax != null) s = Math.min(s, scaleMax);
-      sx = sy = sz = s;
-    } else {
-      sx = base * scaleX;
-      sy = (base * scaleY) / Math.max(localSize.y, 0.001);
-      sz = base * scaleZ;
-    }
-
-    const posX = -((localMin.x + localMax.x) / 2) * sx;
-    const posY = -localMin.y * sy + yOffset;
-    const posZ = -((localMin.z + localMax.z) / 2) * sz;
-
-    return {
-      position: [posX, posY, posZ] as [number, number, number],
-      modelScale: [sx, sy, sz] as [number, number, number],
-      height: localSize.y * sy,
-    };
+  const { clone, layout } = useMemo(() => {
+    const c = cloneScene(scene, cloneMaterials, castShadow, receiveShadow);
+    const bounds = measureSceneBounds(c);
+    const layoutResult = computeGltfLayout(
+      bounds.localSize,
+      bounds.localMin,
+      bounds.localMax,
+      {
+        footprint,
+        scale,
+        yOffset,
+        uniformScale,
+        fitExtent,
+        scaleMin,
+        scaleMax,
+      },
+    );
+    return { clone: c, layout: layoutResult };
   }, [
-    localSize,
-    localMin,
-    localMax,
+    scene,
+    cloneMaterials,
+    castShadow,
+    receiveShadow,
     footprint,
-    scaleX,
-    scaleY,
-    scaleZ,
+    scale,
     yOffset,
     uniformScale,
     fitExtent,
@@ -190,9 +168,9 @@ export default function GlTFModel({
   const [sx, sy, sz] = layout.modelScale;
   const pickCenterY = layout.position[1] + layout.height / 2;
   const pickSize: [number, number, number] = [
-    localSize.x * sx,
+    layout.localSize.x * sx,
     layout.height,
-    localSize.z * sz,
+    layout.localSize.z * sz,
   ];
 
   const pickHandlers = interactive

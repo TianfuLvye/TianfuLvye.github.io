@@ -16,9 +16,11 @@ import type { BuildingPlacement } from './layout';
 import {
   DECOR_FLOWER_PATCH_DENSITY,
   DECOR_LARGE_MIN_BUILDING_DIST,
+  DECOR_MAX_INSTANCES,
   DECOR_POT_BUILDING_CHANCE,
   DECOR_WILD_MIN_BUILDING_DIST,
   DECOR_WILD_SCATTER_DENSITY,
+  decorDensityScale,
   GRID_CELL_SIZE,
   GRID_FOREST_COUNT,
   GRID_FOREST_GROUND_MAX,
@@ -178,28 +180,52 @@ function growForest(
   occupancy: GridOccupancy,
 ): GridCell[] {
   const cells: GridCell[] = [start];
-  occupancy.setForest(start.col, start.row, forestId);
+  const cellSet = new Set<string>([`${start.col},${start.row}`]);
+  const frontier: GridCell[] = [];
+  const frontierKeys = new Set<string>();
+  occupancy.setForest(start.col, start.row, forestId, true);
 
-  while (cells.length < targetSize) {
-    const frontier: GridCell[] = [];
-    const seen = new Set<string>();
+  const tryAddFrontier = (n: GridCell) => {
+    const k = `${n.col},${n.row}`;
+    if (
+      cellSet.has(k) ||
+      frontierKeys.has(k) ||
+      occupancy.hasBuilding(n.col, n.row) ||
+      occupancy.hasForest(n.col, n.row)
+    ) {
+      return;
+    }
+    frontierKeys.add(k);
+    frontier.push(n);
+  };
 
-    for (const c of cells) {
-      for (const n of neighbors4(c.col, c.row)) {
-        const k = `${n.col},${n.row}`;
-        if (seen.has(k)) continue;
-        seen.add(k);
-        if (occupancy.hasBuilding(n.col, n.row)) continue;
-        if (occupancy.hasForest(n.col, n.row)) continue;
-        frontier.push(n);
-      }
+  for (const n of neighbors4(start.col, start.row)) {
+    tryAddFrontier(n);
+  }
+
+  while (cells.length < targetSize && frontier.length > 0) {
+    const idx = Math.floor(rng() * frontier.length);
+    const pick = frontier[idx];
+    frontier[idx] = frontier[frontier.length - 1];
+    frontier.pop();
+    const pk = `${pick.col},${pick.row}`;
+    frontierKeys.delete(pk);
+
+    if (
+      cellSet.has(pk) ||
+      occupancy.hasBuilding(pick.col, pick.row) ||
+      occupancy.hasForest(pick.col, pick.row)
+    ) {
+      continue;
     }
 
-    if (frontier.length === 0) break;
-
-    const pick = frontier[Math.floor(rng() * frontier.length)];
     cells.push(pick);
+    cellSet.add(pk);
     occupancy.setForest(pick.col, pick.row, forestId);
+
+    for (const n of neighbors4(pick.col, pick.row)) {
+      tryAddFrontier(n);
+    }
   }
 
   return cells;
@@ -276,7 +302,8 @@ function placeForestCellDecor(
 
 function placeForests(
   rng: () => number,
-  mapSize: number,
+  density: number,
+  gridCells: GridCell[],
   occupancy: GridOccupancy,
   out: DecorationPlacement[],
 ) {
@@ -286,9 +313,9 @@ function placeForests(
   const { trees: treePool, ground: groundPool } = splitForestPool(forestPool);
   if (treePool.length === 0 && groundPool.length === 0) return;
 
-  const target = Math.round(GRID_FOREST_COUNT * (mapSize / 18));
+  const target = Math.max(1, Math.round(GRID_FOREST_COUNT * density));
   const candidates = shuffleCopy(
-    allCells().filter(
+    gridCells.filter(
       (c) =>
         !occupancy.hasBuilding(c.col, c.row) &&
         !occupancy.hasForest(c.col, c.row),
@@ -339,16 +366,17 @@ function placeForests(
 
 function placeFlowerPatches(
   rng: () => number,
-  mapSize: number,
+  density: number,
+  gridCells: GridCell[],
   occupancy: GridOccupancy,
   out: DecorationPlacement[],
 ) {
   const flowerPool = decorationsByClusterKind('flower');
   if (flowerPool.length === 0) return;
 
-  const target = Math.round(DECOR_FLOWER_PATCH_DENSITY * (mapSize / 18));
+  const target = Math.round(DECOR_FLOWER_PATCH_DENSITY * density);
   const candidates = shuffleCopy(
-    allCells().filter((c) => !occupancy.isOccupiedForWild(c.col, c.row)),
+    gridCells.filter((c) => !occupancy.isOccupiedForWild(c.col, c.row)),
     rng,
   );
 
@@ -375,16 +403,17 @@ function placeFlowerPatches(
 
 function placeWildScatter(
   rng: () => number,
-  mapSize: number,
+  density: number,
+  gridCells: GridCell[],
   occupancy: GridOccupancy,
   out: DecorationPlacement[],
 ) {
   const wildPool = decorationsByZone('wild');
   if (wildPool.length === 0) return;
 
-  const target = Math.round(DECOR_WILD_SCATTER_DENSITY * (mapSize / 18));
+  const target = Math.round(DECOR_WILD_SCATTER_DENSITY * density);
   const candidates = shuffleCopy(
-    allCells().filter((c) => !occupancy.isOccupiedForWild(c.col, c.row)),
+    gridCells.filter((c) => !occupancy.isOccupiedForWild(c.col, c.row)),
     rng,
   );
 
@@ -428,11 +457,16 @@ export function placeDecorations(input: {
   const rng = rngFor(`decor:${continentId}`);
   const out: DecorationPlacement[] = [];
   const occupancy = initOccupancy(buildings);
+  const density = decorDensityScale(mapSize);
+  const gridCells = allCells();
 
   placeBuildingAdjacent(continentId, buildings, occupancy, out);
-  placeForests(rng, mapSize, occupancy, out);
-  placeFlowerPatches(rng, mapSize, occupancy, out);
-  placeWildScatter(rng, mapSize, occupancy, out);
+  placeForests(rng, density, gridCells, occupancy, out);
+  placeFlowerPatches(rng, density, gridCells, occupancy, out);
+  placeWildScatter(rng, density, gridCells, occupancy, out);
 
+  if (out.length > DECOR_MAX_INSTANCES) {
+    return out.slice(0, DECOR_MAX_INSTANCES);
+  }
   return out;
 }

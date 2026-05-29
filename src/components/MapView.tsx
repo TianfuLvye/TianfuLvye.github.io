@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -15,9 +15,9 @@ import {
 import { placeDecorations } from '../lib/place-decorations';
 import { useWorld } from '../store';
 import GlTFModel from './GlTFModel';
-import DecorationModel from './DecorationModel';
+import InstancedDecorations from './InstancedDecorations';
+import InstancedRoadTiles from './InstancedRoadTiles';
 import MapModelPreload from './MapModelPreload';
-import TagRoadTiles from './TagRoadTiles';
 
 /**
  * drei Html 在 OrthographicCamera 下用 scale = zoom × distanceFactor。
@@ -89,6 +89,12 @@ export default function MapView({ continent, onOpenNote }: Props) {
   }, [continent.notes, sortKey]);
 
   const isSorted = sortKey !== 'default';
+  const htmlDistanceFactor = useOrthoHtmlDistanceFactor(1);
+
+  const hoveredNoteIdSet = useMemo(
+    () => new Set(hoveredNoteIds),
+    [hoveredNoteIds],
+  );
 
   return (
     <>
@@ -148,7 +154,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
         buildings={buildings}
       />
 
-      <TagRoadTiles
+      <InstancedRoadTiles
         segments={tagRoadSegments}
         activeTags={activeTags}
       />
@@ -158,7 +164,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
         <Building
           key={b.note.id}
           placement={b}
-          isHovered={hoveredNoteIds.includes(b.note.id)}
+          isHovered={hoveredNoteIdSet.has(b.note.id)}
           isSelected={selectedNoteId === b.note.id}
           isTagHighlighted={
             activeTags.length > 0 && tagHighlightIds.has(b.note.id)
@@ -166,6 +172,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
           isFloating={isSorted}
           floatRank={sortRank.get(b.note.id) ?? 0}
           totalCount={continent.notes.length}
+          htmlDistanceFactor={htmlDistanceFactor}
           onClick={() => selectNote(b.note)}
           onDoubleClick={() => onOpenNote(b.note)}
         />
@@ -192,11 +199,12 @@ interface BuildingProps {
   isFloating: boolean;
   floatRank: number;
   totalCount: number;
+  htmlDistanceFactor: number;
   onClick: () => void;
   onDoubleClick: () => void;
 }
 
-function Building({
+const Building = memo(function Building({
   placement,
   isHovered,
   isSelected,
@@ -204,12 +212,26 @@ function Building({
   isFloating,
   floatRank,
   totalCount,
+  htmlDistanceFactor,
   onClick,
   onDoubleClick,
 }: BuildingProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [hover, setHover] = useState(false);
-  const htmlDistanceFactor = useOrthoHtmlDistanceFactor(1);
+  const [motionActive, setMotionActive] = useState(isFloating);
+
+  useEffect(() => {
+    if (isFloating) {
+      setMotionActive(true);
+      return;
+    }
+    const y = groupRef.current?.position.y ?? 0;
+    const rot = groupRef.current?.rotation.y ?? GRID_BUILDING_ROTATION;
+    const needsSettle =
+      Math.abs(y) > 0.001 ||
+      Math.abs(rot - GRID_BUILDING_ROTATION) > 0.001;
+    setMotionActive(needsSettle);
+  }, [isFloating]);
 
   // 漂浮目标高度：排名越靠前 → 浮得越高（但还是基于位置稳定）
   const floatHeight = useMemo(() => {
@@ -217,39 +239,6 @@ function Building({
     const norm = totalCount > 1 ? 1 - floatRank / (totalCount - 1) : 1;
     return 1.6 + norm * 2.2;
   }, [isFloating, floatRank, totalCount]);
-
-  // 微动画
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const t = state.clock.elapsedTime;
-    if (isFloating) {
-      // 平滑过渡到目标高度 + 漂浮抖动
-      const phase = floatRank * 0.6;
-      const bob = Math.sin(t * 1.3 + phase) * 0.08;
-      const target = floatHeight + bob;
-      groupRef.current.position.y = THREE.MathUtils.lerp(
-        groupRef.current.position.y,
-        target,
-        0.08,
-      );
-      groupRef.current.rotation.y = THREE.MathUtils.lerp(
-        groupRef.current.rotation.y,
-        GRID_BUILDING_ROTATION + Math.sin(t * 0.4 + phase) * 0.04,
-        0.05,
-      );
-    } else {
-      groupRef.current.position.y = THREE.MathUtils.lerp(
-        groupRef.current.position.y,
-        0,
-        0.1,
-      );
-      groupRef.current.rotation.y = THREE.MathUtils.lerp(
-        groupRef.current.rotation.y,
-        GRID_BUILDING_ROTATION,
-        0.1,
-      );
-    }
-  });
 
   const emphasize = hover || isHovered || isSelected || isTagHighlighted;
   const buildingDef = getBuilding(placement.modelId);
@@ -262,6 +251,15 @@ function Building({
       ref={groupRef}
       position={[placement.position[0], 0, placement.position[2]]}
     >
+      {motionActive && (
+        <BuildingMotion
+          groupRef={groupRef}
+          isFloating={isFloating}
+          floatHeight={floatHeight}
+          floatRank={floatRank}
+          onSettled={() => setMotionActive(false)}
+        />
+      )}
       <GlTFModel
           url={buildingDef.url}
           footprint={placement.footprintExtent}
@@ -320,6 +318,58 @@ function Building({
       )}
     </group>
   );
+});
+
+interface BuildingMotionProps {
+  groupRef: React.RefObject<THREE.Group>;
+  isFloating: boolean;
+  floatHeight: number;
+  floatRank: number;
+  onSettled: () => void;
+}
+
+function BuildingMotion({
+  groupRef,
+  isFloating,
+  floatHeight,
+  floatRank,
+  onSettled,
+}: BuildingMotionProps) {
+  useFrame((state) => {
+    const group = groupRef.current;
+    if (!group) return;
+    const t = state.clock.elapsedTime;
+    if (isFloating) {
+      const phase = floatRank * 0.6;
+      const bob = Math.sin(t * 1.3 + phase) * 0.08;
+      const target = floatHeight + bob;
+      group.position.y = THREE.MathUtils.lerp(group.position.y, target, 0.08);
+      group.rotation.y = THREE.MathUtils.lerp(
+        group.rotation.y,
+        GRID_BUILDING_ROTATION + Math.sin(t * 0.4 + phase) * 0.04,
+        0.05,
+      );
+      return;
+    }
+
+    group.position.y = THREE.MathUtils.lerp(group.position.y, 0, 0.1);
+    group.rotation.y = THREE.MathUtils.lerp(
+      group.rotation.y,
+      GRID_BUILDING_ROTATION,
+      0.1,
+    );
+
+    if (
+      Math.abs(group.position.y) < 0.001 &&
+      Math.abs(group.rotation.y - GRID_BUILDING_ROTATION) < 0.001
+    ) {
+      group.position.y = 0;
+      group.rotation.y = GRID_BUILDING_ROTATION;
+      onSettled();
+    }
+  });
+
+  return null;
 }
 
 /* ---------- Grid overlay ---------- */
@@ -400,17 +450,5 @@ function Decorations({
     [continentId, mapSize, buildings],
   );
 
-  return (
-    <group>
-      {items.map((it, i) => (
-        <DecorationModel
-          key={`${it.decorId}-${i}`}
-          decorId={it.decorId}
-          scale={it.scale}
-          rotation={it.rotation}
-          position={it.position}
-        />
-      ))}
-    </group>
-  );
+  return <InstancedDecorations items={items} />;
 }

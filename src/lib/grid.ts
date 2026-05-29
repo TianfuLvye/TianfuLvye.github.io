@@ -227,8 +227,10 @@ export function shuffleCells<T>(items: T[], rng: () => number): void {
 export class GridOccupancy {
   private buildings = new Map<string, string>();
   private forests = new Map<string, number>();
+  private forestSeeds = new Map<number, GridCell>();
   private flowerPatches = new Set<string>();
   private plantCounts = new Map<string, number>();
+  private buildingDist: Float32Array | null = null;
 
   private key(col: number, row: number): string {
     return cellKey(col, row);
@@ -238,18 +240,28 @@ export class GridOccupancy {
     for (const { col, row } of cells) {
       this.setBuilding(col, row, noteId);
     }
+    this.buildingDist = null;
   }
 
   setBuilding(col: number, row: number, noteId: string): void {
     this.buildings.set(cellKey(col, row), noteId);
+    this.buildingDist = null;
   }
 
   hasBuilding(col: number, row: number): boolean {
     return this.buildings.has(cellKey(col, row));
   }
 
-  setForest(col: number, row: number, forestId: number): void {
+  setForest(
+    col: number,
+    row: number,
+    forestId: number,
+    isSeed = false,
+  ): void {
     this.forests.set(cellKey(col, row), forestId);
+    if (isSeed || !this.forestSeeds.has(forestId)) {
+      this.forestSeeds.set(forestId, { col, row });
+    }
   }
 
   hasForest(col: number, row: number): boolean {
@@ -266,19 +278,7 @@ export class GridOccupancy {
   }
 
   getForestSeedCells(): GridCell[] {
-    const seen = new Set<number>();
-    const seeds: GridCell[] = [];
-    for (const forestId of this.forests.values()) {
-      if (seen.has(forestId)) continue;
-      seen.add(forestId);
-      for (const [k, id] of this.forests.entries()) {
-        if (id !== forestId) continue;
-        const [col, row] = k.split(',').map(Number);
-        seeds.push({ col, row });
-        break;
-      }
-    }
-    return seeds;
+    return [...this.forestSeeds.values()];
   }
 
   allForestCells(): GridCell[] {
@@ -311,14 +311,32 @@ export class GridOccupancy {
     );
   }
 
-  minChebyshevToBuilding(col: number, row: number): number {
-    const cells = this.getBuildingCells();
-    if (cells.length === 0) return Infinity;
-    let min = Infinity;
-    for (const b of cells) {
-      min = Math.min(min, chebyshevDistance({ col, row }, b));
+  private ensureBuildingDist(): void {
+    if (this.buildingDist) return;
+
+    const dist = new Float32Array(GRID_COLS * GRID_ROWS);
+    dist.fill(Infinity);
+    const buildingCells = this.getBuildingCells();
+    if (buildingCells.length === 0) {
+      this.buildingDist = dist;
+      return;
     }
-    return min;
+
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        let min = Infinity;
+        for (const b of buildingCells) {
+          min = Math.min(min, chebyshevDistance({ col, row }, b));
+        }
+        dist[row * GRID_COLS + col] = min;
+      }
+    }
+    this.buildingDist = dist;
+  }
+
+  minChebyshevToBuilding(col: number, row: number): number {
+    this.ensureBuildingDist();
+    return this.buildingDist![row * GRID_COLS + col];
   }
 
   minChebyshevToForest(col: number, row: number): number {

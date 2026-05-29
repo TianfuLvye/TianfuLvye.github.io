@@ -40,6 +40,9 @@ function DecorationModel({
         fitExtent={def.fitExtent ?? 'xz'}
         scaleMin={scaleMin}
         scaleMax={scaleMax}
+        cloneMaterials={false}
+        castShadow={false}
+        receiveShadow={false}
       />
     </group>
   );

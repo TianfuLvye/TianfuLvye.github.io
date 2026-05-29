@@ -75,6 +75,21 @@ export const DECOR_FLOWER_PATCH_DENSITY = 15;
 /** Wild scatter count baseline at MAP_SIZE = 18 (scaled for fine grid area). */
 export const DECOR_WILD_SCATTER_DENSITY = 105;
 
+/** Legacy 10×10 grid cell count used before fine-grid expansion. */
+export const LEGACY_GRID_CELLS = 10 * 10;
+
+/** Ratio of current grid area to legacy (30×30 → 9×). */
+export const GRID_AREA_SCALE =
+  (GRID_COLS * GRID_ROWS) / LEGACY_GRID_CELLS;
+
+/** Scale decor patch counts for map size and finer grid resolution. */
+export function decorDensityScale(mapSize: number): number {
+  return (mapSize / 18) / Math.sqrt(GRID_AREA_SCALE);
+}
+
+/** Hard cap on total decoration instances per continent. */
+export const DECOR_MAX_INSTANCES = 700;
+
 /** Max horizontal extent for a small building on a 3×3 plot. */
 export const BUILDING_SMALL_FOOTPRINT_MAX =
   BUILDING_SPAN_SMALL * GRID_CELL_SIZE * 0.88;
