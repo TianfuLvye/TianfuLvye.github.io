@@ -7,11 +7,20 @@ import {
 import {
   allCells,
   GridOccupancy,
-  neighbors4,
   shuffleCells,
   subCellWorldPosition,
   type GridCell,
 } from './grid';
+import {
+  collectForestCells,
+  forestZoneWorldArea,
+  isFarFromBuildingsWorld,
+  pointInForestZone,
+  randomPointInZone,
+  selectForestZones,
+  worldToCell,
+  type ForestZone,
+} from './forest-zones';
 import type { BuildingPlacement } from './layout';
 import {
   DECOR_FLOWER_PATCH_DENSITY,
@@ -21,17 +30,12 @@ import {
   DECOR_WILD_MIN_BUILDING_DIST,
   DECOR_WILD_SCATTER_DENSITY,
   decorDensityScale,
+  FOREST_GROUND_DENSITY,
+  FOREST_MIN_BUILDING_DIST,
+  FOREST_TREE_DENSITY,
   GRID_CELL_SIZE,
-  GRID_FOREST_COUNT,
-  GRID_FOREST_GROUND_MAX,
-  GRID_FOREST_GROUND_MIN,
   GRID_FOREST_GROUND_TRUNK_CLEARANCE,
-  GRID_FOREST_MAX_CELLS,
-  GRID_FOREST_MIN_CELLS,
-  GRID_FOREST_MIN_SPACING,
   GRID_FOREST_TREE_MIN_SEPARATION,
-  GRID_FOREST_TREES_MAX,
-  GRID_FOREST_TREES_MIN,
   MAP_SIZE,
 } from './map-config';
 import { rngFor, rangeFrom } from './random';
@@ -81,25 +85,6 @@ function splitForestPool(pool: DecorationDef[]): {
   return { trees, ground };
 }
 
-function randomCellWorldPosition(
-  col: number,
-  row: number,
-  rng: () => number,
-  margin = 0.12,
-): [number, number] {
-  const half = MAP_SIZE / 2;
-  const cellLeft = col * GRID_CELL_SIZE - half;
-  const cellBottom = row * GRID_CELL_SIZE - half;
-  const fx = rangeFrom(rng, margin, 1 - margin);
-  const fz = rangeFrom(rng, margin, 1 - margin);
-  let x = cellLeft + fx * GRID_CELL_SIZE;
-  let z = cellBottom + fz * GRID_CELL_SIZE;
-  const jitter = GRID_CELL_SIZE * 0.1;
-  x += rangeFrom(rng, -jitter, jitter);
-  z += rangeFrom(rng, -jitter, jitter);
-  return [x, z];
-}
-
 function isFarFromPoints(
   x: number,
   z: number,
@@ -110,21 +95,6 @@ function isFarFromPoints(
     if (Math.hypot(x - px, z - pz) < minDist) return false;
   }
   return true;
-}
-
-function pickPositionInCell(
-  col: number,
-  row: number,
-  rng: () => number,
-  avoid: Array<[number, number]>,
-  minDist: number,
-  maxAttempts = 10,
-): [number, number] | null {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const [x, z] = randomCellWorldPosition(col, row, rng);
-    if (isFarFromPoints(x, z, avoid, minDist)) return [x, z];
-  }
-  return null;
 }
 
 function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
@@ -172,68 +142,9 @@ function placeBuildingAdjacent(
   }
 }
 
-function growForest(
+function placeForestZoneDecor(
   rng: () => number,
-  start: GridCell,
-  targetSize: number,
-  forestId: number,
-  occupancy: GridOccupancy,
-): GridCell[] {
-  const cells: GridCell[] = [start];
-  const cellSet = new Set<string>([`${start.col},${start.row}`]);
-  const frontier: GridCell[] = [];
-  const frontierKeys = new Set<string>();
-  occupancy.setForest(start.col, start.row, forestId, true);
-
-  const tryAddFrontier = (n: GridCell) => {
-    const k = `${n.col},${n.row}`;
-    if (
-      cellSet.has(k) ||
-      frontierKeys.has(k) ||
-      occupancy.hasBuilding(n.col, n.row) ||
-      occupancy.hasForest(n.col, n.row)
-    ) {
-      return;
-    }
-    frontierKeys.add(k);
-    frontier.push(n);
-  };
-
-  for (const n of neighbors4(start.col, start.row)) {
-    tryAddFrontier(n);
-  }
-
-  while (cells.length < targetSize && frontier.length > 0) {
-    const idx = Math.floor(rng() * frontier.length);
-    const pick = frontier[idx];
-    frontier[idx] = frontier[frontier.length - 1];
-    frontier.pop();
-    const pk = `${pick.col},${pick.row}`;
-    frontierKeys.delete(pk);
-
-    if (
-      cellSet.has(pk) ||
-      occupancy.hasBuilding(pick.col, pick.row) ||
-      occupancy.hasForest(pick.col, pick.row)
-    ) {
-      continue;
-    }
-
-    cells.push(pick);
-    cellSet.add(pk);
-    occupancy.setForest(pick.col, pick.row, forestId);
-
-    for (const n of neighbors4(pick.col, pick.row)) {
-      tryAddFrontier(n);
-    }
-  }
-
-  return cells;
-}
-
-function placeForestCellDecor(
-  rng: () => number,
-  cell: GridCell,
+  zone: ForestZone,
   treePool: DecorationDef[],
   groundPool: DecorationDef[],
   occupancy: GridOccupancy,
@@ -241,68 +152,90 @@ function placeForestCellDecor(
 ) {
   if (treePool.length === 0 && groundPool.length === 0) return;
 
-  const treeCount =
-    GRID_FOREST_TREES_MIN +
-    Math.floor(rng() * (GRID_FOREST_TREES_MAX - GRID_FOREST_TREES_MIN + 1));
-  const treePositions: Array<[number, number]> = [];
+  const area = forestZoneWorldArea(zone);
+  const placedPositions: Array<[number, number]> = [];
 
-  for (let t = 0; t < treeCount; t++) {
-    const decorId = pickFromPool(rng, treePool);
-    if (!decorId) continue;
+  if (treePool.length > 0) {
+    const treeBudget = Math.max(2, Math.round(area * FOREST_TREE_DENSITY));
+    let treesPlaced = 0;
+    let attempts = 0;
+    const maxAttempts = treeBudget * 14;
 
-    const pos = pickPositionInCell(
-      cell.col,
-      cell.row,
-      rng,
-      treePositions,
-      GRID_FOREST_TREE_MIN_SEPARATION,
-    );
-    if (!pos) continue;
+    while (treesPlaced < treeBudget && attempts < maxAttempts) {
+      attempts++;
+      const point = randomPointInZone(rng, zone);
+      if (!point) continue;
 
-    const [x, z] = pos;
-    treePositions.push([x, z]);
-    out.push({
-      decorId,
-      position: [x, 0, z],
-      rotation: rng() * Math.PI * 2,
-      scale: scaleJitter(rng),
-    });
-    occupancy.incrementPlants(cell.col, cell.row);
+      const [x, z] = point;
+      if (!pointInForestZone(x, z, zone)) continue;
+      if (
+        !isFarFromBuildingsWorld(x, z, occupancy, FOREST_MIN_BUILDING_DIST)
+      ) {
+        continue;
+      }
+      if (
+        !isFarFromPoints(x, z, placedPositions, GRID_FOREST_TREE_MIN_SEPARATION)
+      ) {
+        continue;
+      }
+
+      const decorId = pickFromPool(rng, treePool);
+      if (!decorId) break;
+
+      placedPositions.push([x, z]);
+      out.push({
+        decorId,
+        position: [x, 0, z],
+        rotation: rng() * Math.PI * 2,
+        scale: scaleJitter(rng),
+      });
+      const cell = worldToCell(x, z);
+      if (cell) occupancy.incrementPlants(cell.col, cell.row);
+      treesPlaced++;
+    }
   }
 
   if (groundPool.length === 0) return;
 
-  const groundCount =
-    GRID_FOREST_GROUND_MIN +
-    Math.floor(rng() * (GRID_FOREST_GROUND_MAX - GRID_FOREST_GROUND_MIN + 1));
+  const groundBudget = Math.max(3, Math.round(area * FOREST_GROUND_DENSITY));
+  let groundPlaced = 0;
+  let attempts = 0;
+  const maxGroundAttempts = groundBudget * 14;
 
-  for (let g = 0; g < groundCount; g++) {
+  while (groundPlaced < groundBudget && attempts < maxGroundAttempts) {
+    attempts++;
+    const point = randomPointInZone(rng, zone);
+    if (!point) continue;
+
+    const [x, z] = point;
+    if (!pointInForestZone(x, z, zone)) continue;
+    if (!isFarFromBuildingsWorld(x, z, occupancy, FOREST_MIN_BUILDING_DIST)) {
+      continue;
+    }
+    if (
+      !isFarFromPoints(x, z, placedPositions, GRID_FOREST_GROUND_TRUNK_CLEARANCE)
+    ) {
+      continue;
+    }
+
     const decorId = pickFromPool(rng, groundPool);
-    if (!decorId) continue;
+    if (!decorId) break;
 
-    const pos = pickPositionInCell(
-      cell.col,
-      cell.row,
-      rng,
-      treePositions,
-      GRID_FOREST_GROUND_TRUNK_CLEARANCE,
-    );
-    if (!pos) continue;
-
-    const [x, z] = pos;
+    placedPositions.push([x, z]);
     out.push({
       decorId,
       position: [x, 0, z],
       rotation: rng() * Math.PI * 2,
       scale: scaleJitter(rng),
     });
-    occupancy.incrementPlants(cell.col, cell.row);
+    const cell = worldToCell(x, z);
+    if (cell) occupancy.incrementPlants(cell.col, cell.row);
+    groundPlaced++;
   }
 }
 
 function placeForests(
   rng: () => number,
-  density: number,
   gridCells: GridCell[],
   occupancy: GridOccupancy,
   out: DecorationPlacement[],
@@ -313,54 +246,23 @@ function placeForests(
   const { trees: treePool, ground: groundPool } = splitForestPool(forestPool);
   if (treePool.length === 0 && groundPool.length === 0) return;
 
-  const target = Math.max(1, Math.round(GRID_FOREST_COUNT * density));
-  const candidates = shuffleCopy(
-    gridCells.filter(
-      (c) =>
-        !occupancy.hasBuilding(c.col, c.row) &&
-        !occupancy.hasForest(c.col, c.row),
-    ),
-    rng,
-  );
-
+  const zones = selectForestZones(rng, occupancy);
   let forestId = 0;
-  let placed = 0;
 
-  for (const start of candidates) {
-    if (placed >= target) break;
-    if (
-      occupancy.minChebyshevToForest(start.col, start.row) <
-      GRID_FOREST_MIN_SPACING
-    ) {
-      continue;
-    }
-
-    const size =
-      GRID_FOREST_MIN_CELLS +
-      Math.floor(
-        rng() * (GRID_FOREST_MAX_CELLS - GRID_FOREST_MIN_CELLS + 1),
-      );
-    const forestCells = growForest(
-      rng,
-      start,
-      size,
+  for (const zone of zones) {
+    const forestCells = collectForestCells(
+      zone,
+      gridCells,
       forestId,
       occupancy,
     );
-
-    for (const cell of forestCells) {
-      placeForestCellDecor(
-        rng,
-        cell,
-        treePool,
-        groundPool,
-        occupancy,
-        out,
-      );
+    if (forestCells.length === 0) {
+      forestId++;
+      continue;
     }
 
+    placeForestZoneDecor(rng, zone, treePool, groundPool, occupancy, out);
     forestId++;
-    placed++;
   }
 }
 
@@ -461,7 +363,7 @@ export function placeDecorations(input: {
   const gridCells = allCells();
 
   placeBuildingAdjacent(continentId, buildings, occupancy, out);
-  placeForests(rng, density, gridCells, occupancy, out);
+  placeForests(rng, gridCells, occupancy, out);
   placeFlowerPatches(rng, density, gridCells, occupancy, out);
   placeWildScatter(rng, density, gridCells, occupancy, out);
 

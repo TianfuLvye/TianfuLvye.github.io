@@ -36,29 +36,36 @@ export type BuildingGridSpan =
 /** Minimum empty fine cells between building footprints. */
 export const BUILDING_MIN_GAP = 2;
 
-/** Forest patch size range in contiguous fine cells (~legacy world size). */
-export const GRID_FOREST_MIN_CELLS = 9;
-export const GRID_FOREST_MAX_CELLS = 18;
+/** Forest edge ribbons along map sides (world units). */
+export const FOREST_RIBBON_LENGTH = MAP_SIZE * 0.72;
+export const FOREST_RIBBON_WIDTH = 3.2;
 
-/** Forest patch count baseline at MAP_SIZE = 18. */
-export const GRID_FOREST_COUNT = 3;
+/** Perimeter-biased elliptical forest patches. */
+export const FOREST_ELLIPSE_COUNT = 2;
+export const FOREST_ELLIPSE_RX_MIN = 3.5;
+export const FOREST_ELLIPSE_RX_MAX = 5.5;
+export const FOREST_ELLIPSE_RZ_MIN = 2.5;
+export const FOREST_ELLIPSE_RZ_MAX = 4.5;
 
-/** Min Chebyshev distance between forest patch seed cells (fine cells). */
-export const GRID_FOREST_MIN_SPACING = 6;
+/** Ellipse center radius as a fraction of buildable half-extent (biased toward edges). */
+export const FOREST_EDGE_CENTER_MIN = 0.55;
+export const FOREST_EDGE_CENTER_MAX = 0.88;
 
-/** Trees per forest cell (dedicated slots, not shared with ground decor). */
-export const GRID_FOREST_TREES_MIN = 2;
-export const GRID_FOREST_TREES_MAX = 4;
+/** Soft zone boundary — decor only inside this fraction of ellipse radius. */
+export const FOREST_EDGE_FALLOFF = 0.92;
 
-/** Ground decor per forest cell (grass, rocks, flowers, etc.). */
-export const GRID_FOREST_GROUND_MIN = 2;
-export const GRID_FOREST_GROUND_MAX = 8;
+/** Medium tree / ground density per square world unit inside forest zones. */
+export const FOREST_TREE_DENSITY = 0.4;
+export const FOREST_GROUND_DENSITY = 0.22;
+
+/** Min world distance from forest decor to nearest building. */
+export const FOREST_MIN_BUILDING_DIST = 2.0;
 
 /** Min distance from a tree trunk center for ground decor (world units). */
-export const GRID_FOREST_GROUND_TRUNK_CLEARANCE = GRID_CELL_SIZE * 0.12;
+export const GRID_FOREST_GROUND_TRUNK_CLEARANCE = (MAP_SIZE / 10) * 0.12;
 
-/** Min distance between tree centers within the same forest cell. */
-export const GRID_FOREST_TREE_MIN_SEPARATION = GRID_CELL_SIZE * 0.32;
+/** Min distance between tree centers within a forest zone (world units). */
+export const GRID_FOREST_TREE_MIN_SEPARATION = (MAP_SIZE / 10) * 0.32;
 
 /** Default min distance from any building for wild scatter. */
 export const DECOR_WILD_MIN_BUILDING_DIST = 1.8;
