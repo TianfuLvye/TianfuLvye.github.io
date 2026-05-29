@@ -1,10 +1,14 @@
 import * as THREE from 'three';
+import { buildingRadius, type BuildingPlacement } from './layout';
 import { rngFor, rangeFrom } from './random';
 import type { TagBridge } from './types';
 import { colorForTag } from './tag-bridges';
 
 export const BASE_Y = 0.06;
 export const Y_LIFT = [0, 0.02, 0.04] as const;
+
+/** Extra gap between bridge end and building footprint edge. */
+export const BRIDGE_BUILDING_CLEARANCE = 0.3;
 
 /** Across the bridge deck (local X). */
 export const PLANK_SPAN = 0.54;
@@ -27,6 +31,57 @@ export const RAINBOW_COLORS = [
 
 const WOOD_DARK = '#6b4a2a';
 const BRIDGE_CORRIDOR_RADIUS = 0.95;
+
+export function bridgeEndpointClearance(radius: number): number {
+  return radius + BRIDGE_BUILDING_CLEARANCE;
+}
+
+export function insetBridgeEndpoints(
+  startCenter: Readonly<[number, number, number]>,
+  endCenter: Readonly<[number, number, number]>,
+  startClearance: number,
+  endClearance: number,
+): { start: THREE.Vector3; end: THREE.Vector3 } {
+  const startCenter3 = new THREE.Vector3(startCenter[0], BASE_Y, startCenter[2]);
+  const endCenter3 = new THREE.Vector3(endCenter[0], BASE_Y, endCenter[2]);
+  const dx = endCenter3.x - startCenter3.x;
+  const dz = endCenter3.z - startCenter3.z;
+  const len = Math.hypot(dx, dz);
+  const totalInset = startClearance + endClearance;
+
+  if (len <= totalInset) {
+    const mid = startCenter3.clone().add(endCenter3).multiplyScalar(0.5);
+    mid.y = BASE_Y;
+    return { start: mid, end: mid.clone() };
+  }
+
+  const nx = dx / len;
+  const nz = dz / len;
+  return {
+    start: new THREE.Vector3(
+      startCenter3.x + nx * startClearance,
+      BASE_Y,
+      startCenter3.z + nz * startClearance,
+    ),
+    end: new THREE.Vector3(
+      endCenter3.x - nx * endClearance,
+      BASE_Y,
+      endCenter3.z - nz * endClearance,
+    ),
+  };
+}
+
+export function bridgeEndpointsForBuildings(
+  a: BuildingPlacement,
+  b: BuildingPlacement,
+): { start: THREE.Vector3; end: THREE.Vector3 } {
+  return insetBridgeEndpoints(
+    a.position,
+    b.position,
+    bridgeEndpointClearance(buildingRadius(a)),
+    bridgeEndpointClearance(buildingRadius(b)),
+  );
+}
 
 export function bridgeCurve(
   start: THREE.Vector3,
@@ -292,7 +347,7 @@ export function pickPlankIndexAtPoint(
 /** Sample xz points along all bridge curves for decor exclusion. */
 export function sampleBridgeCorridor(
   bridges: TagBridge[],
-  buildings: Array<{ note: { id: string }; position: [number, number, number] }>,
+  buildings: BuildingPlacement[],
 ): Array<[number, number]> {
   const byId = new Map(buildings.map((b) => [b.note.id, b]));
   const points: Array<[number, number]> = [];
@@ -302,16 +357,13 @@ export function sampleBridgeCorridor(
     const b = byId.get(bridge.targetId);
     if (!a || !b) continue;
 
-    const start = new THREE.Vector3(a.position[0], BASE_Y, a.position[2]);
-    const end = new THREE.Vector3(b.position[0], BASE_Y, b.position[2]);
+    const { start, end } = bridgeEndpointsForBuildings(a, b);
     const seed = `${bridge.sourceId}:${bridge.targetId}`;
     const curve = bridgeCurve(start, end, seed);
     const steps = Math.max(10, Math.ceil(curve.getLength() / 0.35));
     for (const p of curve.getSpacedPoints(steps)) {
       points.push([p.x, p.z]);
     }
-    points.push([a.position[0], a.position[2]]);
-    points.push([b.position[0], b.position[2]]);
   }
 
   return points;

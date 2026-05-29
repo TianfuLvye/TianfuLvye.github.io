@@ -1,6 +1,11 @@
 import * as THREE from 'three';
+import type { BuildingPlacement } from './layout';
 import type { TagBridge } from './types';
-import { BASE_Y, bridgeCurve, computePlankCount } from './plank-bridge';
+import {
+  bridgeCurve,
+  bridgeEndpointsForBuildings,
+  computePlankCount,
+} from './plank-bridge';
 
 export const RISE_DURATION_MS = 460;
 export const SINK_DURATION_MS = 350;
@@ -51,14 +56,13 @@ function endpointIndexAtBuilding(meta: BridgeMeta, buildingId: string): number |
 
 export function computeBridgePlankCount(
   bridge: TagBridge,
-  positions: Map<string, readonly [number, number, number]>,
+  buildingsById: Map<string, BuildingPlacement>,
 ): number {
-  const a = positions.get(bridge.sourceId);
-  const b = positions.get(bridge.targetId);
+  const a = buildingsById.get(bridge.sourceId);
+  const b = buildingsById.get(bridge.targetId);
   if (!a || !b) return 0;
   const key = bridgeKey(bridge);
-  const start = new THREE.Vector3(a[0], BASE_Y, a[2]);
-  const end = new THREE.Vector3(b[0], BASE_Y, b[2]);
+  const { start, end } = bridgeEndpointsForBuildings(a, b);
   const curve = bridgeCurve(start, end, key);
   return computePlankCount(curve);
 }
@@ -110,14 +114,14 @@ export function sinkYOffsetFrom(
 
 export function computeRiseSchedule(
   bridges: TagBridge[],
-  positions: Map<string, readonly [number, number, number]>,
+  buildingsById: Map<string, BuildingPlacement>,
 ): Map<string, number> {
   const metas: BridgeMeta[] = [];
   const bridgesByBuilding = new Map<string, BridgeMeta[]>();
 
   for (const bridge of bridges) {
     const key = bridgeKey(bridge);
-    const plankCount = computeBridgePlankCount(bridge, positions);
+    const plankCount = computeBridgePlankCount(bridge, buildingsById);
     if (plankCount < 1) continue;
     const meta: BridgeMeta = { bridge, key, plankCount };
     metas.push(meta);

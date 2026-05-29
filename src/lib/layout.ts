@@ -1,5 +1,7 @@
+import { getBuilding } from '../config/building-catalog';
 import {
   BUILDING_EDGE_MARGIN,
+  BUILDING_FOOTPRINT_SCALE,
   BUILDING_MIN_SPACING,
 } from './map-config';
 import { pickBuildingModel } from './pick-building-model';
@@ -90,6 +92,13 @@ export interface BuildingPlacement {
   rotation: number;
   /** GLB 建筑模型 id */
   modelId: string;
+}
+
+/** Approximate horizontal radius from building center to footprint edge. */
+export function buildingRadius(building: BuildingPlacement): number {
+  const def = getBuilding(building.modelId);
+  const footprint = (def?.footprint ?? 1) * BUILDING_FOOTPRINT_SCALE;
+  return footprint * building.scale[0] * 0.55;
 }
 
 /**

@@ -1,4 +1,3 @@
-import { getBuilding } from '../config/building-catalog';
 import {
   decorationsByClusterKind,
   decorationsByZone,
@@ -6,9 +5,8 @@ import {
   type DecorationDef,
 } from '../config/decoration-catalog';
 import { isNearBridgeCorridor } from './plank-bridge';
-import type { BuildingPlacement } from './layout';
+import { buildingRadius, type BuildingPlacement } from './layout';
 import {
-  BUILDING_FOOTPRINT_SCALE,
   DECOR_CLUSTER_MIN_SPACING,
   DECOR_FLOWER_PATCH_DENSITY,
   DECOR_TREE_GROVE_DENSITY,
@@ -27,12 +25,6 @@ export interface DecorationPlacement {
 const BUILDING_POT_MIN_DIST = 0.4;
 const SCALE_JITTER_MIN = 0.85;
 const SCALE_JITTER_MAX = 1.15;
-
-export function buildingRadius(building: BuildingPlacement): number {
-  const def = getBuilding(building.modelId);
-  const footprint = (def?.footprint ?? 1) * BUILDING_FOOTPRINT_SCALE;
-  return footprint * building.scale[0] * 0.55;
-}
 
 function distanceToNearestBuilding(
   x: number,

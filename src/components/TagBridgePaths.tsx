@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import type { BuildingPlacement } from '../lib/layout';
 import {
   BASE_Y,
+  bridgeEndpointsForBuildings,
   buildBridgeMeshSpec,
   buildPlankGeometry,
   pickPlankIndexAtPoint,
@@ -478,8 +479,7 @@ function TagBridge({
     const b = buildingsById.get(bridge.targetId);
     if (!a || !b) return null;
 
-    const start = new THREE.Vector3(a.position[0], BASE_Y, a.position[2]);
-    const end = new THREE.Vector3(b.position[0], BASE_Y, b.position[2]);
+    const { start, end } = bridgeEndpointsForBuildings(a, b);
     return buildBridgeMeshSpec(bridge, start, end);
   }, [bridge, buildingsById]);
 
@@ -493,12 +493,6 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
   const buildingsById = useMemo(() => {
     const m = new Map<string, BuildingPlacement>();
     for (const b of buildings) m.set(b.note.id, b);
-    return m;
-  }, [buildings]);
-
-  const positions = useMemo(() => {
-    const m = new Map<string, readonly [number, number, number]>();
-    for (const b of buildings) m.set(b.note.id, b.position);
     return m;
   }, [buildings]);
 
@@ -532,7 +526,7 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
   useEffect(() => {
     if (visible) {
       setHasActivated(true);
-      const schedule = computeRiseSchedule(bridges, positions);
+      const schedule = computeRiseSchedule(bridges, buildingsById);
       setRiseSchedule(schedule);
       setRiseStartMs(performance.now());
       setPhase('rising');
@@ -546,7 +540,7 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
       setSinkStartMs(performance.now());
       setPhase('sinking');
     }
-  }, [visible, bridges, positions, setHover, selectTagBridge]);
+  }, [visible, bridges, buildingsById, setHover, selectTagBridge]);
 
   useFrame(() => {
     const now = performance.now();
