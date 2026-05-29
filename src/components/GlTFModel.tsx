@@ -10,6 +10,10 @@ export interface GlTFModelProps {
   scale?: [number, number, number];
   yOffset?: number;
   emphasized?: boolean;
+  /** Tint mesh color (roads, etc.). */
+  tintColor?: string;
+  /** Emissive intensity when tintColor is set. */
+  emissiveIntensity?: number;
   /** Decorations: equal X/Y/Z scale. Buildings: Y follows scale[1] / bbox height. */
   uniformScale?: boolean;
   fitExtent?: DecorFitExtent;
@@ -33,6 +37,27 @@ function applyEmissive(root: THREE.Object3D, emphasized: boolean) {
       if (mat instanceof THREE.MeshStandardMaterial) {
         mat.emissive.set(emphasized ? '#c9a961' : '#000000');
         mat.emissiveIntensity = emphasized ? 0.22 : 0;
+      }
+    }
+  });
+}
+
+function applyTint(
+  root: THREE.Object3D,
+  tintColor: string | undefined,
+  emissiveIntensity: number,
+) {
+  if (!tintColor) return;
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const mats = Array.isArray(child.material)
+      ? child.material
+      : [child.material];
+    for (const mat of mats) {
+      if (mat instanceof THREE.MeshStandardMaterial) {
+        mat.color.set(tintColor);
+        mat.emissive.set(tintColor);
+        mat.emissiveIntensity = emissiveIntensity;
       }
     }
   });
@@ -77,6 +102,8 @@ export default function GlTFModel({
   scale = [1, 1, 1],
   yOffset = 0,
   emphasized = false,
+  tintColor,
+  emissiveIntensity = 0.1,
   uniformScale = false,
   fitExtent = 'xz',
   scaleMin,
@@ -153,8 +180,12 @@ export default function GlTFModel({
   }, [clone, interactive]);
 
   useEffect(() => {
-    applyEmissive(clone, emphasized);
-  }, [clone, emphasized]);
+    if (tintColor) {
+      applyTint(clone, tintColor, emissiveIntensity);
+    } else {
+      applyEmissive(clone, emphasized);
+    }
+  }, [clone, emphasized, tintColor, emissiveIntensity]);
 
   const [sx, sy, sz] = layout.modelScale;
   const pickCenterY = layout.position[1] + layout.height / 2;

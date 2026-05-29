@@ -9,6 +9,8 @@ interface WorldStore {
   focusedContinent: string | null;
   /** 在 map 视图里高亮的 note id（sidebar、tag 面板等） */
   hoveredNoteIds: string[];
+  /** 当前激活的 tag（多选马路图层） */
+  activeTags: string[];
   /** map 视图的 sort_by 模式 */
   sortKey: SortKey;
   /** 云朵转场是否正在进行 */
@@ -22,6 +24,8 @@ interface WorldStore {
   selectNote: (note: NoteData | null) => void;
   hoverNote: (id: string | null) => void;
   hoverNotes: (ids: string[]) => void;
+  toggleTag: (tag: string) => void;
+  clearActiveTags: () => void;
   setSort: (k: SortKey) => void;
   setTransitioning: (t: boolean) => void;
   setShowGridDebug: (v: boolean) => void;
@@ -32,6 +36,7 @@ export const useWorld = create<WorldStore>((set) => ({
   selectedNote: null,
   focusedContinent: null,
   hoveredNoteIds: [],
+  activeTags: [],
   sortKey: 'default',
   transitioning: false,
   showGridDebug: false,
@@ -41,6 +46,7 @@ export const useWorld = create<WorldStore>((set) => ({
       view: { kind: 'map', continentId },
       selectedNote: null,
       hoveredNoteIds: [],
+      activeTags: [],
       sortKey: 'default',
       focusedContinent: null,
       showGridDebug: false,
@@ -50,6 +56,7 @@ export const useWorld = create<WorldStore>((set) => ({
       view: { kind: 'globe' },
       selectedNote: null,
       hoveredNoteIds: [],
+      activeTags: [],
       sortKey: 'default',
       showGridDebug: false,
     }),
@@ -57,6 +64,13 @@ export const useWorld = create<WorldStore>((set) => ({
   selectNote: (note) => set({ selectedNote: note }),
   hoverNote: (id) => set({ hoveredNoteIds: id ? [id] : [] }),
   hoverNotes: (ids) => set({ hoveredNoteIds: ids }),
+  toggleTag: (tag) =>
+    set((s) => ({
+      activeTags: s.activeTags.includes(tag)
+        ? s.activeTags.filter((t) => t !== tag)
+        : [...s.activeTags, tag],
+    })),
+  clearActiveTags: () => set({ activeTags: [] }),
   setSort: (k) => set({ sortKey: k }),
   setTransitioning: (t) => set({ transitioning: t }),
   setShowGridDebug: (v) => set({ showGridDebug: v }),

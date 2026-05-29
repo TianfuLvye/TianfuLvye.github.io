@@ -17,6 +17,7 @@ import { useWorld } from '../store';
 import GlTFModel from './GlTFModel';
 import DecorationModel from './DecorationModel';
 import MapModelPreload from './MapModelPreload';
+import TagRoadTiles from './TagRoadTiles';
 
 /**
  * drei Html 在 OrthographicCamera 下用 scale = zoom × distanceFactor。
@@ -49,12 +50,24 @@ export default function MapView({ continent, onOpenNote }: Props) {
     () => placeContinentLayout(continent.notes, MAP_SIZE),
     [continent.notes],
   );
-  const { buildings } = layout;
+  const { buildings, tagRoadSegments } = layout;
   const sortKey = useWorld((s) => s.sortKey);
   const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
+  const activeTags = useWorld((s) => s.activeTags);
+  const clearActiveTags = useWorld((s) => s.clearActiveTags);
   const selectNote = useWorld((s) => s.selectNote);
   const selectedNoteId = useWorld((s) => s.selectedNote?.id ?? null);
   const showGridDebug = useWorld((s) => s.showGridDebug);
+
+  const tagHighlightIds = useMemo(() => {
+    if (activeTags.length === 0) return new Set<string>();
+    const active = new Set(activeTags);
+    return new Set(
+      continent.notes
+        .filter((n) => n.tags.some((t) => active.has(t)))
+        .map((n) => n.id),
+    );
+  }, [continent.notes, activeTags]);
 
   // 根据 sortKey 排序，决定每个 note 的"漂浮顺序"
   const sortRank = useMemo(() => {
@@ -109,6 +122,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
         onClick={(e) => {
           e.stopPropagation();
           selectNote(null);
+          clearActiveTags();
         }}
       >
         <planeGeometry args={[MAP_SIZE, MAP_SIZE, 1, 1]} />
@@ -130,6 +144,11 @@ export default function MapView({ continent, onOpenNote }: Props) {
         buildings={buildings}
       />
 
+      <TagRoadTiles
+        segments={tagRoadSegments}
+        activeTags={activeTags}
+      />
+
       {/* 建筑物 */}
       {buildings.map((b) => (
         <Building
@@ -137,6 +156,9 @@ export default function MapView({ continent, onOpenNote }: Props) {
           placement={b}
           isHovered={hoveredNoteIds.includes(b.note.id)}
           isSelected={selectedNoteId === b.note.id}
+          isTagHighlighted={
+            activeTags.length > 0 && tagHighlightIds.has(b.note.id)
+          }
           isFloating={isSorted}
           floatRank={sortRank.get(b.note.id) ?? 0}
           totalCount={continent.notes.length}
@@ -162,6 +184,7 @@ interface BuildingProps {
   placement: BuildingPlacement;
   isHovered: boolean;
   isSelected: boolean;
+  isTagHighlighted: boolean;
   isFloating: boolean;
   floatRank: number;
   totalCount: number;
@@ -173,6 +196,7 @@ function Building({
   placement,
   isHovered,
   isSelected,
+  isTagHighlighted,
   isFloating,
   floatRank,
   totalCount,
@@ -223,7 +247,7 @@ function Building({
     }
   });
 
-  const emphasize = hover || isHovered || isSelected;
+  const emphasize = hover || isHovered || isSelected || isTagHighlighted;
   const buildingDef = getBuilding(placement.modelId);
   const labelLift = placement.footprintExtent * 0.4 + 0.35;
 

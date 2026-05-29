@@ -1,0 +1,188 @@
+[
+  {
+    "component": "road_bend",
+    "file": "road_bend.glb",
+    "submeshes": 5,
+    "size_bytes": 21256
+  },
+  {
+    "component": "road_bendSidewalk",
+    "file": "road_bendSidewalk.glb",
+    "submeshes": 4,
+    "size_bytes": 13032
+  },
+  {
+    "component": "road_bendSquare",
+    "file": "road_bendSquare.glb",
+    "submeshes": 5,
+    "size_bytes": 10436
+  },
+  {
+    "component": "road_bridge",
+    "file": "road_bridge.glb",
+    "submeshes": 4,
+    "size_bytes": 17748
+  },
+  {
+    "component": "road_crossing",
+    "file": "road_crossing.glb",
+    "submeshes": 4,
+    "size_bytes": 8568
+  },
+  {
+    "component": "road_crossroad",
+    "file": "road_crossroad.glb",
+    "submeshes": 5,
+    "size_bytes": 15560
+  },
+  {
+    "component": "road_crossroadLine",
+    "file": "road_crossroadLine.glb",
+    "submeshes": 4,
+    "size_bytes": 9052
+  },
+  {
+    "component": "road_crossroadPath",
+    "file": "road_crossroadPath.glb",
+    "submeshes": 4,
+    "size_bytes": 14296
+  },
+  {
+    "component": "road_curve",
+    "file": "road_curve.glb",
+    "submeshes": 5,
+    "size_bytes": 26436
+  },
+  {
+    "component": "road_curveIntersection",
+    "file": "road_curveIntersection.glb",
+    "submeshes": 6,
+    "size_bytes": 26064
+  },
+  {
+    "component": "road_curvePavement",
+    "file": "road_curvePavement.glb",
+    "submeshes": 4,
+    "size_bytes": 13052
+  },
+  {
+    "component": "road_drivewayDoubleBarrier",
+    "file": "road_drivewayDoubleBarrier.glb",
+    "submeshes": 5,
+    "size_bytes": 11568
+  },
+  {
+    "component": "road_drivewaySingleBarrier",
+    "file": "road_drivewaySingleBarrier.glb",
+    "submeshes": 5,
+    "size_bytes": 10344
+  },
+  {
+    "component": "road_end",
+    "file": "road_end.glb",
+    "submeshes": 5,
+    "size_bytes": 8740
+  },
+  {
+    "component": "road_endRound",
+    "file": "road_endRound.glb",
+    "submeshes": 5,
+    "size_bytes": 21336
+  },
+  {
+    "component": "road_intersection",
+    "file": "road_intersection.glb",
+    "submeshes": 5,
+    "size_bytes": 12360
+  },
+  {
+    "component": "road_intersectionLine",
+    "file": "road_intersectionLine.glb",
+    "submeshes": 4,
+    "size_bytes": 7812
+  },
+  {
+    "component": "road_intersectionPath",
+    "file": "road_intersectionPath.glb",
+    "submeshes": 4,
+    "size_bytes": 11796
+  },
+  {
+    "component": "road_roundabout",
+    "file": "road_roundabout.glb",
+    "submeshes": 5,
+    "size_bytes": 96272
+  },
+  {
+    "component": "road_side",
+    "file": "road_side.glb",
+    "submeshes": 5,
+    "size_bytes": 8772
+  },
+  {
+    "component": "road_sideEntry",
+    "file": "road_sideEntry.glb",
+    "submeshes": 5,
+    "size_bytes": 27816
+  },
+  {
+    "component": "road_sideExit",
+    "file": "road_sideExit.glb",
+    "submeshes": 5,
+    "size_bytes": 27804
+  },
+  {
+    "component": "road_slant",
+    "file": "road_slant.glb",
+    "submeshes": 5,
+    "size_bytes": 8512
+  },
+  {
+    "component": "road_slantCurve",
+    "file": "road_slantCurve.glb",
+    "submeshes": 5,
+    "size_bytes": 49508
+  },
+  {
+    "component": "road_slantFlat",
+    "file": "road_slantFlat.glb",
+    "submeshes": 4,
+    "size_bytes": 6424
+  },
+  {
+    "component": "road_slantFlat.001",
+    "file": "road_slantFlat_001.glb",
+    "submeshes": 5,
+    "size_bytes": 34376
+  },
+  {
+    "component": "road_slantFlatHigh",
+    "file": "road_slantFlatHigh.glb",
+    "submeshes": 4,
+    "size_bytes": 6344
+  },
+  {
+    "component": "road_slantHigh",
+    "file": "road_slantHigh.glb",
+    "submeshes": 5,
+    "size_bytes": 8544
+  },
+  {
+    "component": "road_splitBarrier",
+    "file": "road_splitBarrier.glb",
+    "submeshes": 5,
+    "size_bytes": 59696
+  },
+  {
+    "component": "road_square",
+    "file": "road_square.glb",
+    "submeshes": 4,
+    "size_bytes": 7288
+  },
+  {
+    "component": "road_straightBarrier",
+    "file": "road_straightBarrier.glb",
+    "submeshes": 5,
+    "size_bytes": 8872
+  }
+]

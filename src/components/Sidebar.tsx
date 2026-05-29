@@ -18,14 +18,39 @@ const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
   { key: 'name', label: 'by name' },
 ];
 
+function collectTags(notes: NoteData[]): string[] {
+  const tags = new Set<string>();
+  for (const note of notes) {
+    for (const tag of note.tags) tags.add(tag);
+  }
+  return [...tags].sort();
+}
+
 export default function Sidebar({ continent, onPick }: Props) {
   const sortKey = useWorld((s) => s.sortKey);
   const setSort = useWorld((s) => s.setSort);
   const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
   const hoverNote = useWorld((s) => s.hoverNote);
+  const hoverNotes = useWorld((s) => s.hoverNotes);
+  const activeTags = useWorld((s) => s.activeTags);
+  const toggleTag = useWorld((s) => s.toggleTag);
+  const clearActiveTags = useWorld((s) => s.clearActiveTags);
+
+  const allTags = useMemo(
+    () => collectTags(continent.notes),
+    [continent.notes],
+  );
+
+  const filteredNotes = useMemo(() => {
+    if (activeTags.length === 0) return continent.notes;
+    const active = new Set(activeTags);
+    return continent.notes.filter((n) =>
+      n.tags.some((t) => active.has(t)),
+    );
+  }, [continent.notes, activeTags]);
 
   const ordered = useMemo(() => {
-    const arr = [...continent.notes];
+    const arr = [...filteredNotes];
     switch (sortKey) {
       case 'size':
         arr.sort((a, b) => b.size - a.size);
@@ -40,7 +65,18 @@ export default function Sidebar({ continent, onPick }: Props) {
         break;
     }
     return arr;
-  }, [continent.notes, sortKey]);
+  }, [filteredNotes, sortKey]);
+
+  const handleTagHover = (tag: string | null) => {
+    if (!tag) {
+      hoverNote(null);
+      return;
+    }
+    const ids = continent.notes
+      .filter((n) => n.tags.includes(tag))
+      .map((n) => n.id);
+    hoverNotes(ids);
+  };
 
   return (
     <aside className="sidebar">
@@ -52,6 +88,32 @@ export default function Sidebar({ continent, onPick }: Props) {
           {formatTotalNoteCharCount(continent.totalSize)}
         </div>
       </div>
+
+      {allTags.length > 0 && (
+        <div className="tag-chip-row">
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className={`tag-chip ${activeTags.includes(tag) ? 'is-active' : ''}`}
+              onClick={() => toggleTag(tag)}
+              onMouseEnter={() => handleTagHover(tag)}
+              onMouseLeave={() => handleTagHover(null)}
+            >
+              {tag}
+            </button>
+          ))}
+          {activeTags.length > 0 && (
+            <button
+              type="button"
+              className="tag-chip-clear"
+              onClick={clearActiveTags}
+            >
+              clear
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="sort-row">
         {SORT_OPTIONS.map((opt) => (
