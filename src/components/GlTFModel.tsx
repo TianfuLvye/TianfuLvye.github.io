@@ -93,13 +93,14 @@ export default function GlTFModel({
   const scaleZ = scale[2];
 
   /** Bbox from a fresh local-space clone — never re-measure after parent scale is applied. */
-  const { clone, localSize, localMinY } = useMemo(() => {
+  const { clone, localSize, localMin, localMax } = useMemo(() => {
     const c = cloneSceneWithMaterials(scene);
     const box = new THREE.Box3().setFromObject(c);
     return {
       clone: c,
       localSize: box.getSize(new THREE.Vector3()),
-      localMinY: box.min.y,
+      localMin: box.min.clone(),
+      localMax: box.max.clone(),
     };
   }, [scene]);
 
@@ -122,16 +123,19 @@ export default function GlTFModel({
       sz = base * scaleZ;
     }
 
-    const posY = -localMinY * sy + yOffset;
+    const posX = -((localMin.x + localMax.x) / 2) * sx;
+    const posY = -localMin.y * sy + yOffset;
+    const posZ = -((localMin.z + localMax.z) / 2) * sz;
 
     return {
-      position: [0, posY, 0] as [number, number, number],
+      position: [posX, posY, posZ] as [number, number, number],
       modelScale: [sx, sy, sz] as [number, number, number],
       height: localSize.y * sy,
     };
   }, [
     localSize,
-    localMinY,
+    localMin,
+    localMax,
     footprint,
     scaleX,
     scaleY,

@@ -226,6 +226,11 @@ function Building({
         0,
         0.1,
       );
+      groupRef.current.rotation.y = THREE.MathUtils.lerp(
+        groupRef.current.rotation.y,
+        0,
+        0.1,
+      );
     }
   });
 
