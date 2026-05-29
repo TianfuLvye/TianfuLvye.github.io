@@ -4,9 +4,11 @@ import { Html, OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { getBuilding } from '../config/building-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
+import { gridLineSegments } from '../lib/grid';
 import { placeBuildings, type BuildingPlacement } from '../lib/layout';
 import {
   BUILDING_FOOTPRINT_SCALE,
+  GRID_BUILDING_ROTATION,
   MAP_CAMERA_ZOOM,
   MAP_SIZE,
 } from '../lib/map-config';
@@ -57,6 +59,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
   const selectNote = useWorld((s) => s.selectNote);
   const selectedNoteId = useWorld((s) => s.selectedNote?.id ?? null);
   const showTagPaths = useWorld((s) => s.showTagPaths);
+  const showGridDebug = useWorld((s) => s.showGridDebug);
   const selectTagBridge = useWorld((s) => s.selectTagBridge);
 
   // 根据 sortKey 排序，决定每个 note 的"漂浮顺序"
@@ -124,6 +127,8 @@ export default function MapView({ continent, onOpenNote }: Props) {
         <planeGeometry args={[MAP_SIZE + 4, MAP_SIZE + 4, 1, 1]} />
         <meshStandardMaterial color="#264a6b" roughness={0.6} />
       </mesh>
+
+      {showGridDebug && <GridOverlay />}
 
       {/* 一些装饰性的小树 / 灌木 */}
       <Decorations
@@ -217,7 +222,7 @@ function Building({
       );
       groupRef.current.rotation.y = THREE.MathUtils.lerp(
         groupRef.current.rotation.y,
-        placement.rotation + Math.sin(t * 0.4 + phase) * 0.04,
+        GRID_BUILDING_ROTATION + Math.sin(t * 0.4 + phase) * 0.04,
         0.05,
       );
     } else {
@@ -228,7 +233,7 @@ function Building({
       );
       groupRef.current.rotation.y = THREE.MathUtils.lerp(
         groupRef.current.rotation.y,
-        0,
+        GRID_BUILDING_ROTATION,
         0.1,
       );
     }
@@ -245,8 +250,7 @@ function Building({
       ref={groupRef}
       position={[placement.position[0], 0, placement.position[2]]}
     >
-      <group rotation={[0, placement.rotation, 0]}>
-        <GlTFModel
+      <GlTFModel
           url={buildingDef.url}
           footprint={buildingDef.footprint * BUILDING_FOOTPRINT_SCALE}
           scale={placement.scale}
@@ -273,7 +277,6 @@ function Building({
             document.body.style.cursor = '';
           }}
         />
-      </group>
 
       {/* sort_by 模式下，漂浮块下方的 pattern 浮空陆地 */}
       {isFloating && (
@@ -304,6 +307,33 @@ function Building({
         </Html>
       )}
     </group>
+  );
+}
+
+/* ---------- Grid overlay ---------- */
+
+function GridOverlay() {
+  const geometry = useMemo(() => {
+    const segments = gridLineSegments();
+    const positions = new Float32Array(segments.length * 6);
+    segments.forEach(([a, b], i) => {
+      const o = i * 6;
+      positions[o] = a[0];
+      positions[o + 1] = a[1];
+      positions[o + 2] = a[2];
+      positions[o + 3] = b[0];
+      positions[o + 4] = b[1];
+      positions[o + 5] = b[2];
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    return geo;
+  }, []);
+
+  return (
+    <lineSegments geometry={geometry} renderOrder={1}>
+      <lineBasicMaterial color="#8a7355" transparent opacity={0.5} />
+    </lineSegments>
   );
 }
 

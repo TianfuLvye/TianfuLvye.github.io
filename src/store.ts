@@ -15,6 +15,8 @@ interface WorldStore {
   transitioning: boolean;
   /** 是否显示 tag 木板路 */
   showTagPaths: boolean;
+  /** 是否显示地图网格调试线 */
+  showGridDebug: boolean;
   /** 当前选中的 tag 桥（sourceId:targetId） */
   selectedTagBridgeKey: string | null;
 
@@ -27,6 +29,7 @@ interface WorldStore {
   setSort: (k: SortKey) => void;
   setTransitioning: (t: boolean) => void;
   setShowTagPaths: (v: boolean) => void;
+  setShowGridDebug: (v: boolean) => void;
   selectTagBridge: (key: string | null) => void;
 }
 
@@ -38,6 +41,7 @@ export const useWorld = create<WorldStore>((set) => ({
   sortKey: 'default',
   transitioning: false,
   showTagPaths: false,
+  showGridDebug: false,
   selectedTagBridgeKey: null,
 
   enterMap: (continentId) =>
@@ -48,6 +52,7 @@ export const useWorld = create<WorldStore>((set) => ({
       sortKey: 'default',
       focusedContinent: null,
       showTagPaths: false,
+      showGridDebug: false,
       selectedTagBridgeKey: null,
     }),
   exitToGlobe: () =>
@@ -57,6 +62,7 @@ export const useWorld = create<WorldStore>((set) => ({
       hoveredNoteIds: [],
       sortKey: 'default',
       showTagPaths: false,
+      showGridDebug: false,
       selectedTagBridgeKey: null,
     }),
   focusContinent: (id) => set({ focusedContinent: id }),
@@ -70,5 +76,6 @@ export const useWorld = create<WorldStore>((set) => ({
       showTagPaths: v,
       selectedTagBridgeKey: v ? s.selectedTagBridgeKey : null,
     })),
+  setShowGridDebug: (v) => set({ showGridDebug: v }),
   selectTagBridge: (key) => set({ selectedTagBridgeKey: key }),
 }));

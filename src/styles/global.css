@@ -447,6 +447,33 @@ button {
   border-color: var(--ink);
 }
 
+.grid-debug-toggle {
+  position: absolute;
+  bottom: 24px;
+  right: 360px;
+  z-index: 20;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  box-shadow: 0 2px 12px rgba(11, 20, 38, 0.12);
+  transition: all 0.15s ease;
+  pointer-events: auto;
+}
+.grid-debug-toggle:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.grid-debug-toggle.is-active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
 .tag-paths-row {
   display: flex;
   flex-wrap: wrap;
@@ -929,6 +956,10 @@ body:has(.note-article) {
     right: 16px;
     bottom: 16px;
     padding: 16px;
+  }
+  .grid-debug-toggle {
+    right: 270px;
+    bottom: 16px;
   }
   .details-panel {
     width: 100%;

@@ -8,6 +8,7 @@ import CloudTransition from './CloudTransition';
 import DetailsPanel from './DetailsPanel';
 import Sidebar from './Sidebar';
 import BridgeTagInfoDock from './BridgeTagInfoDock';
+import GridDebugToggle from './GridDebugToggle';
 import HUD from './HUD';
 
 interface Props {
@@ -115,6 +116,8 @@ export default function World({ tree }: Props) {
       {view.kind === 'map' && currentContinent && (
         <BridgeTagInfoDock continent={currentContinent} />
       )}
+
+      {view.kind === 'map' && currentContinent && <GridDebugToggle />}
 
       <DetailsPanel
         note={selectedNote}

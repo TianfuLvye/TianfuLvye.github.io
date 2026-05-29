@@ -4,14 +4,27 @@ import {
   pickFromPool,
   type DecorationDef,
 } from '../config/decoration-catalog';
-import { isNearBridgeCorridor } from './plank-bridge';
-import { buildingRadius, type BuildingPlacement } from './layout';
 import {
-  DECOR_CLUSTER_MIN_SPACING,
+  allCells,
+  cellCenter,
+  GridOccupancy,
+  neighbors4,
+  shuffleCells,
+  subCellWorldPosition,
+  type GridCell,
+} from './grid';
+import { isNearBridgeCorridor } from './plank-bridge';
+import type { BuildingPlacement } from './layout';
+import {
   DECOR_FLOWER_PATCH_DENSITY,
-  DECOR_TREE_GROVE_DENSITY,
+  DECOR_LARGE_MIN_BUILDING_DIST,
+  DECOR_POT_BUILDING_CHANCE,
   DECOR_WILD_MIN_BUILDING_DIST,
   DECOR_WILD_SCATTER_DENSITY,
+  GRID_FOREST_COUNT,
+  GRID_FOREST_MAX_CELLS,
+  GRID_FOREST_MIN_CELLS,
+  GRID_FOREST_MIN_SPACING,
 } from './map-config';
 import { rngFor, rangeFrom } from './random';
 
@@ -22,84 +35,11 @@ export interface DecorationPlacement {
   scale: number;
 }
 
-const BUILDING_POT_MIN_DIST = 0.4;
 const SCALE_JITTER_MIN = 0.85;
 const SCALE_JITTER_MAX = 1.15;
 
-function distanceToNearestBuilding(
-  x: number,
-  z: number,
-  buildings: BuildingPlacement[],
-): number {
-  if (buildings.length === 0) return Infinity;
-  let min = Infinity;
-  for (const b of buildings) {
-    const d = Math.hypot(b.position[0] - x, b.position[2] - z);
-    if (d < min) min = d;
-  }
-  return min;
-}
-
-function distanceToNearestClusterCenter(
-  x: number,
-  z: number,
-  centers: Array<[number, number]>,
-): number {
-  if (centers.length === 0) return Infinity;
-  let min = Infinity;
-  for (const [cx, cz] of centers) {
-    const d = Math.hypot(cx - x, cz - z);
-    if (d < min) min = d;
-  }
-  return min;
-}
-
 function scaleJitter(rng: () => number): number {
   return rangeFrom(rng, SCALE_JITTER_MIN, SCALE_JITTER_MAX);
-}
-
-function isValidWildPoint(
-  x: number,
-  z: number,
-  mapSize: number,
-  minBuildingDist: number,
-  buildings: BuildingPlacement[],
-  bridgeCorridor: Array<[number, number]>,
-  clusterCenters: Array<[number, number]>,
-): boolean {
-  const half = mapSize / 2;
-  const margin = 0.5;
-  if (
-    x < -half + margin ||
-    x > half - margin ||
-    z < -half + margin ||
-    z > half - margin
-  ) {
-    return false;
-  }
-  if (distanceToNearestBuilding(x, z, buildings) < minBuildingDist) {
-    return false;
-  }
-  if (isNearBridgeCorridor(x, z, bridgeCorridor)) return false;
-  if (
-    distanceToNearestClusterCenter(x, z, clusterCenters) <
-    DECOR_CLUSTER_MIN_SPACING
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function sampleRingPoint(
-  rng: () => number,
-  cx: number,
-  cz: number,
-  minDist: number,
-  maxDist: number,
-): [number, number] {
-  const angle = rng() * Math.PI * 2;
-  const dist = rangeFrom(rng, minDist, maxDist);
-  return [cx + Math.sin(angle) * dist, cz + Math.cos(angle) * dist];
 }
 
 function rotationToward(
@@ -111,193 +51,262 @@ function rotationToward(
   return Math.atan2(toX - fromX, toZ - fromZ);
 }
 
+function isBridgeClear(
+  x: number,
+  z: number,
+  bridgeCorridor: Array<[number, number]>,
+): boolean {
+  return !isNearBridgeCorridor(x, z, bridgeCorridor);
+}
+
+function isCellBridgeClear(
+  col: number,
+  row: number,
+  bridgeCorridor: Array<[number, number]>,
+): boolean {
+  const [cx, cz] = cellCenter(col, row);
+  if (!isBridgeClear(cx, cz, bridgeCorridor)) return false;
+  return true;
+}
+
+function largePropMinChebyshev(def: DecorationDef | undefined): number {
+  const minDist = def?.minBuildingDist ?? DECOR_WILD_MIN_BUILDING_DIST;
+  return minDist >= DECOR_LARGE_MIN_BUILDING_DIST ? 2 : 1;
+}
+
+function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
+  const occupancy = new GridOccupancy();
+  for (const b of buildings) {
+    occupancy.setBuilding(b.gridCol, b.gridRow, b.note.id);
+  }
+  return occupancy;
+}
+
 function placeBuildingAdjacent(
   continentId: string,
   buildings: BuildingPlacement[],
   bridgeCorridor: Array<[number, number]>,
+  occupancy: GridOccupancy,
   out: DecorationPlacement[],
 ) {
   const potPool = decorationsByZone('building');
 
   for (const building of buildings) {
     const rng = rngFor(`decor:${continentId}:${building.note.id}`);
-    const bx = building.position[0];
-    const bz = building.position[2];
-    const radius = buildingRadius(building);
+    const [bx, bz] = cellCenter(building.gridCol, building.gridRow);
 
     for (const def of potPool) {
-      const chance = def.buildingChance ?? 0;
+      const chance = def.buildingChance ?? DECOR_POT_BUILDING_CHANCE;
       if (rng() >= chance) continue;
 
-      const [minCount, maxCount] = def.perBuildingCount ?? [1, 1];
+      const [minCount, maxCount] = def.perBuildingCount ?? [0, 1];
       const count =
-        minCount +
-        Math.floor(rng() * (maxCount - minCount + 1));
-      const maxDist = def.maxBuildingDist ?? 1.6;
-      const minDist = Math.max(BUILDING_POT_MIN_DIST, radius * 0.35);
+        minCount + Math.floor(rng() * (maxCount - minCount + 1));
 
       for (let i = 0; i < count; i++) {
-        for (let attempt = 0; attempt < 24; attempt++) {
-          const [x, z] = sampleRingPoint(rng, bx, bz, minDist, maxDist);
-          if (isNearBridgeCorridor(x, z, bridgeCorridor)) continue;
-          out.push({
-            decorId: def.id,
-            position: [x, 0, z],
-            rotation: rotationToward(x, z, bx, bz) + rangeFrom(rng, -0.3, 0.3),
-            scale: scaleJitter(rng),
-          });
-          break;
-        }
+        const [x, z] = subCellWorldPosition(
+          building.gridCol,
+          building.gridRow,
+          i + 1,
+          rng,
+        );
+        if (!isBridgeClear(x, z, bridgeCorridor)) continue;
+
+        out.push({
+          decorId: def.id,
+          position: [x, 0, z],
+          rotation: rotationToward(x, z, bx, bz) + rangeFrom(rng, -0.3, 0.3),
+          scale: scaleJitter(rng),
+        });
+        occupancy.incrementPlants(building.gridCol, building.gridRow);
       }
     }
   }
 }
 
-function placeCluster(
+function growForest(
   rng: () => number,
-  cx: number,
-  cz: number,
-  pool: DecorationDef[],
-  countMin: number,
-  countMax: number,
-  radiusMin: number,
-  radiusMax: number,
-): DecorationPlacement[] {
-  const count =
-    countMin + Math.floor(rng() * (countMax - countMin + 1));
-  const items: DecorationPlacement[] = [];
+  start: GridCell,
+  targetSize: number,
+  forestId: number,
+  occupancy: GridOccupancy,
+  bridgeCorridor: Array<[number, number]>,
+): GridCell[] {
+  const cells: GridCell[] = [start];
+  occupancy.setForest(start.col, start.row, forestId);
 
-  for (let i = 0; i < count; i++) {
-    const decorId = pickFromPool(rng, pool);
-    if (!decorId) continue;
-    const angle = rng() * Math.PI * 2;
-    const dist = rangeFrom(rng, 0, rangeFrom(rng, radiusMin, radiusMax));
-    const x = cx + Math.sin(angle) * dist;
-    const z = cz + Math.cos(angle) * dist;
-    items.push({
-      decorId,
-      position: [x, 0, z],
-      rotation: rng() * Math.PI * 2,
-      scale: scaleJitter(rng),
-    });
+  while (cells.length < targetSize) {
+    const frontier: GridCell[] = [];
+    const seen = new Set<string>();
+
+    for (const c of cells) {
+      for (const n of neighbors4(c.col, c.row)) {
+        const k = `${n.col},${n.row}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (occupancy.hasBuilding(n.col, n.row)) continue;
+        if (occupancy.hasForest(n.col, n.row)) continue;
+        if (!isCellBridgeClear(n.col, n.row, bridgeCorridor)) continue;
+        frontier.push(n);
+      }
+    }
+
+    if (frontier.length === 0) break;
+
+    const pick = frontier[Math.floor(rng() * frontier.length)];
+    cells.push(pick);
+    occupancy.setForest(pick.col, pick.row, forestId);
   }
 
-  return items;
+  return cells;
 }
 
-function placeWildClusters(
+function placeForests(
   rng: () => number,
   mapSize: number,
-  buildings: BuildingPlacement[],
+  occupancy: GridOccupancy,
   bridgeCorridor: Array<[number, number]>,
   out: DecorationPlacement[],
-): Array<[number, number]> {
-  const half = mapSize / 2;
-  const clusterCenters: Array<[number, number]> = [];
+) {
   const treePool = decorationsByClusterKind('tree');
-  const flowerPool = decorationsByClusterKind('flower');
+  if (treePool.length === 0) return;
 
-  const treeTarget = Math.round(
-    DECOR_TREE_GROVE_DENSITY * (mapSize / 18),
+  const target = Math.round(GRID_FOREST_COUNT * (mapSize / 18));
+  const candidates = shuffleCopy(
+    allCells().filter(
+      (c) =>
+        !occupancy.hasBuilding(c.col, c.row) &&
+        !occupancy.hasForest(c.col, c.row) &&
+        isCellBridgeClear(c.col, c.row, bridgeCorridor),
+    ),
+    rng,
   );
-  const flowerTarget = Math.round(
-    DECOR_FLOWER_PATCH_DENSITY * (mapSize / 18),
-  );
 
-  const tryPlaceCluster = (
-    target: number,
-    pool: DecorationDef[],
-    countMin: number,
-    countMax: number,
-    radiusMin: number,
-    radiusMax: number,
-  ) => {
-    let placed = 0;
-    let attempts = 0;
-    const maxAttempts = target * 40;
+  let forestId = 0;
+  let placed = 0;
 
-    while (placed < target && attempts < maxAttempts) {
-      attempts++;
-      const x = rangeFrom(rng, -half + 1, half - 1);
-      const z = rangeFrom(rng, -half + 1, half - 1);
-      if (
-        !isValidWildPoint(
-          x,
-          z,
-          mapSize,
-          DECOR_WILD_MIN_BUILDING_DIST,
-          buildings,
-          bridgeCorridor,
-          clusterCenters,
-        )
-      ) {
-        continue;
-      }
-      if (pool.length === 0) break;
-
-      clusterCenters.push([x, z]);
-      out.push(
-        ...placeCluster(
-          rng,
-          x,
-          z,
-          pool,
-          countMin,
-          countMax,
-          radiusMin,
-          radiusMax,
-        ),
-      );
-      placed++;
+  for (const start of candidates) {
+    if (placed >= target) break;
+    if (
+      occupancy.minChebyshevToForest(start.col, start.row) <
+      GRID_FOREST_MIN_SPACING
+    ) {
+      continue;
     }
-  };
 
-  tryPlaceCluster(treeTarget, treePool, 3, 6, 1.0, 2.2);
-  tryPlaceCluster(flowerTarget, flowerPool, 4, 8, 0.6, 1.4);
+    const size =
+      GRID_FOREST_MIN_CELLS +
+      Math.floor(
+        rng() * (GRID_FOREST_MAX_CELLS - GRID_FOREST_MIN_CELLS + 1),
+      );
+    const forestCells = growForest(
+      rng,
+      start,
+      size,
+      forestId,
+      occupancy,
+      bridgeCorridor,
+    );
 
-  return clusterCenters;
+    for (const cell of forestCells) {
+      const treeCount = 2 + Math.floor(rng() * 3);
+      for (let t = 0; t < treeCount; t++) {
+        const decorId = pickFromPool(rng, treePool);
+        if (!decorId) continue;
+        const [x, z] = subCellWorldPosition(cell.col, cell.row, t, rng);
+        if (!isBridgeClear(x, z, bridgeCorridor)) continue;
+        out.push({
+          decorId,
+          position: [x, 0, z],
+          rotation: rng() * Math.PI * 2,
+          scale: scaleJitter(rng),
+        });
+        occupancy.incrementPlants(cell.col, cell.row);
+      }
+    }
+
+    forestId++;
+    placed++;
+  }
+}
+
+function placeFlowerPatches(
+  rng: () => number,
+  mapSize: number,
+  occupancy: GridOccupancy,
+  bridgeCorridor: Array<[number, number]>,
+  out: DecorationPlacement[],
+) {
+  const flowerPool = decorationsByClusterKind('flower');
+  if (flowerPool.length === 0) return;
+
+  const target = Math.round(DECOR_FLOWER_PATCH_DENSITY * (mapSize / 18));
+  const candidates = shuffleCopy(
+    allCells().filter(
+      (c) =>
+        !occupancy.isOccupiedForWild(c.col, c.row) &&
+        isCellBridgeClear(c.col, c.row, bridgeCorridor),
+    ),
+    rng,
+  );
+
+  let placed = 0;
+  for (const cell of candidates) {
+    if (placed >= target) break;
+
+    const count = 4 + Math.floor(rng() * 5);
+    for (let i = 0; i < count; i++) {
+      const decorId = pickFromPool(rng, flowerPool);
+      if (!decorId) continue;
+      const [x, z] = subCellWorldPosition(cell.col, cell.row, i + 2, rng);
+      if (!isBridgeClear(x, z, bridgeCorridor)) continue;
+      out.push({
+        decorId,
+        position: [x, 0, z],
+        rotation: rng() * Math.PI * 2,
+        scale: scaleJitter(rng),
+      });
+    }
+    occupancy.setFlowerPatch(cell.col, cell.row);
+    placed++;
+  }
 }
 
 function placeWildScatter(
   rng: () => number,
   mapSize: number,
-  buildings: BuildingPlacement[],
+  occupancy: GridOccupancy,
   bridgeCorridor: Array<[number, number]>,
-  clusterCenters: Array<[number, number]>,
   out: DecorationPlacement[],
 ) {
-  const half = mapSize / 2;
   const wildPool = decorationsByZone('wild');
-  const target = Math.round(DECOR_WILD_SCATTER_DENSITY * (mapSize / 18));
-  let placed = 0;
-  let attempts = 0;
-  const maxAttempts = target * 12;
+  if (wildPool.length === 0) return;
 
-  while (placed < target && attempts < maxAttempts) {
-    attempts++;
+  const target = Math.round(DECOR_WILD_SCATTER_DENSITY * (mapSize / 18));
+  const candidates = shuffleCopy(
+    allCells().filter(
+      (c) =>
+        !occupancy.isOccupiedForWild(c.col, c.row) &&
+        isCellBridgeClear(c.col, c.row, bridgeCorridor),
+    ),
+    rng,
+  );
+
+  let placed = 0;
+  for (const cell of candidates) {
+    if (placed >= target) break;
+
     const decorId = pickFromPool(rng, wildPool);
     if (!decorId) break;
 
     const def = wildPool.find((d) => d.id === decorId);
-    const minDist =
-      def?.minBuildingDist ?? DECOR_WILD_MIN_BUILDING_DIST;
-
-    const x = rangeFrom(rng, -half + 0.5, half - 0.5);
-    const z = rangeFrom(rng, -half + 0.5, half - 0.5);
-
-    if (
-      !isValidWildPoint(
-        x,
-        z,
-        mapSize,
-        minDist,
-        buildings,
-        bridgeCorridor,
-        clusterCenters,
-      )
-    ) {
+    const minCheb = largePropMinChebyshev(def);
+    if (occupancy.minChebyshevToBuilding(cell.col, cell.row) < minCheb) {
       continue;
     }
+
+    const [x, z] = subCellWorldPosition(cell.col, cell.row, 0, rng);
+    if (!isBridgeClear(x, z, bridgeCorridor)) continue;
 
     out.push({
       decorId,
@@ -309,6 +318,12 @@ function placeWildScatter(
   }
 }
 
+function shuffleCopy<T>(items: T[], rng: () => number): T[] {
+  const copy = [...items];
+  shuffleCells(copy, rng);
+  return copy;
+}
+
 export function placeDecorations(input: {
   continentId: string;
   mapSize: number;
@@ -318,25 +333,12 @@ export function placeDecorations(input: {
   const { continentId, mapSize, buildings, bridgeCorridor } = input;
   const rng = rngFor(`decor:${continentId}`);
   const out: DecorationPlacement[] = [];
+  const occupancy = initOccupancy(buildings);
 
-  placeBuildingAdjacent(continentId, buildings, bridgeCorridor, out);
-
-  const clusterCenters = placeWildClusters(
-    rng,
-    mapSize,
-    buildings,
-    bridgeCorridor,
-    out,
-  );
-
-  placeWildScatter(
-    rng,
-    mapSize,
-    buildings,
-    bridgeCorridor,
-    clusterCenters,
-    out,
-  );
+  placeBuildingAdjacent(continentId, buildings, bridgeCorridor, occupancy, out);
+  placeForests(rng, mapSize, occupancy, bridgeCorridor, out);
+  placeFlowerPatches(rng, mapSize, occupancy, bridgeCorridor, out);
+  placeWildScatter(rng, mapSize, occupancy, bridgeCorridor, out);
 
   return out;
 }

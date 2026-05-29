@@ -1,9 +1,11 @@
 import { getBuilding } from '../config/building-catalog';
 import {
-  BUILDING_EDGE_MARGIN,
-  BUILDING_FOOTPRINT_SCALE,
-  BUILDING_MIN_SPACING,
-} from './map-config';
+  buildableCells,
+  cellCenter,
+  overflowCells,
+  shuffleCells,
+} from './grid';
+import { BUILDING_FOOTPRINT_SCALE, GRID_BUILDING_ROTATION } from './map-config';
 import { pickBuildingModel } from './pick-building-model';
 import { rngFor, rangeFrom } from './random';
 import type { ContinentData, NoteData } from './types';
@@ -82,6 +84,9 @@ export interface BuildingPlacement {
   note: NoteData;
   /** 平面上 (x, z) 位置；y 高度由 height 决定 */
   position: [number, number, number];
+  /** 网格列、行索引 */
+  gridCol: number;
+  gridRow: number;
   /** 均匀缩放 [s, s, s]（保持模型原始比例） */
   scale: [number, number, number];
   /** 颜色（HSL hue） */
@@ -102,48 +107,49 @@ export function buildingRadius(building: BuildingPlacement): number {
 }
 
 /**
- * 把一个大陆的所有 note 放到 size×size 的平面上，
- * 用基于 (continentId + noteId) 的种子保证位置稳定。
+ * 把一个大陆的所有 note 放到网格上，一格一栋，统一朝西。
+ * 用基于 continentId 的种子洗牌格位，保证位置稳定。
  */
 export function placeBuildings(
   notes: NoteData[],
-  mapSize: number,
+  _mapSize: number,
 ): BuildingPlacement[] {
-  const half = mapSize / 2;
-  const margin = BUILDING_EDGE_MARGIN;
-  const minSpacing = BUILDING_MIN_SPACING;
+  const continentId = notes[0]?.continentId ?? 'unknown';
+  const cellRng = rngFor(`building-cells:${continentId}`);
+  const primary = buildableCells();
+  const overflow = overflowCells();
+  shuffleCells(primary, cellRng);
+  shuffleCells(overflow, cellRng);
+  const cells = [...primary, ...overflow];
+
   const placed: BuildingPlacement[] = [];
 
-  for (const note of notes) {
+  for (let i = 0; i < notes.length; i++) {
+    const note = notes[i];
     const rng = rngFor(`building:${note.id}`);
 
-    // 尝试找一个不和已有建筑太近的位置（简单的拒绝采样）
-    let pos: [number, number] = [0, 0];
-    for (let attempt = 0; attempt < 48; attempt++) {
-      const x = rangeFrom(rng, -half + margin, half - margin);
-      const z = rangeFrom(rng, -half + margin, half - margin);
-      const tooClose = placed.some(
-        (p) =>
-          Math.hypot(p.position[0] - x, p.position[2] - z) < minSpacing,
+    if (i >= cells.length) {
+      console.warn(
+        `[placeBuildings] ${continentId}: more notes (${notes.length}) than grid cells (${cells.length}); skipping "${note.id}"`,
       );
-      if (!tooClose) {
-        pos = [x, z];
-        break;
-      }
-      if (attempt === 47) pos = [x, z];
+      continue;
     }
 
-    // 体量基于文件大小（均匀缩放，保持 GLB 原始长宽高比）
+    const { col, row } = cells[i];
+    const [x, z] = cellCenter(col, row);
+
     const k = Math.log10(note.size + 50) / 4;
     const s = 0.85 + k * 0.55 + rng() * 0.2;
 
     placed.push({
       note,
-      position: [pos[0], 0, pos[1]],
+      position: [x, 0, z],
+      gridCol: col,
+      gridRow: row,
       scale: [s, s, s],
       hue: rng() * 360,
       roof: rng(),
-      rotation: rng() * Math.PI * 2,
+      rotation: GRID_BUILDING_ROTATION,
       modelId: pickBuildingModel(note),
     });
   }
