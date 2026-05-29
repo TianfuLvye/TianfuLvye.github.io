@@ -59,7 +59,7 @@ function rotationToward(
 
 function largePropMinChebyshev(def: DecorationDef | undefined): number {
   const minDist = def?.minBuildingDist ?? DECOR_WILD_MIN_BUILDING_DIST;
-  return minDist >= DECOR_LARGE_MIN_BUILDING_DIST ? 2 : 1;
+  return Math.max(1, Math.ceil(minDist / GRID_CELL_SIZE));
 }
 
 function isForestTree(def: DecorationDef): boolean {

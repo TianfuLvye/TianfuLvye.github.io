@@ -1,23 +1,18 @@
 import type { RoadTileKind } from '../config/road-catalog';
-import { colorForTag } from './tag-colors';
 import type { RoadSegment } from './place-roads';
 import { cellKey, type GridCell } from './grid';
 
 /** N=1, E=2, S=4, W=8 */
-export const DIR_N = 1;
-export const DIR_E = 2;
-export const DIR_S = 4;
-export const DIR_W = 8;
+const DIR_N = 1;
+const DIR_E = 2;
+const DIR_S = 4;
+const DIR_W = 8;
 
 export interface RoadTileInstance {
   col: number;
   row: number;
   kind: RoadTileKind;
   rotationY: number;
-  tags: string[];
-  overlap: number;
-  tint: string;
-  emissiveIntensity: number;
 }
 
 function directionBetween(a: GridCell, b: GridCell): number {
@@ -30,14 +25,7 @@ function directionBetween(a: GridCell, b: GridCell): number {
   return 0;
 }
 
-function addDirection(mask: number, dir: number): number {
-  return mask | dir;
-}
-
-function maskForCell(
-  cell: GridCell,
-  pathSet: Set<string>,
-): number {
+function maskForCell(cell: GridCell, pathSet: Set<string>): number {
   let mask = 0;
   for (const n of [
     { col: cell.col, row: cell.row - 1 },
@@ -46,17 +34,14 @@ function maskForCell(
     { col: cell.col - 1, row: cell.row },
   ]) {
     if (pathSet.has(cellKey(n.col, n.row))) {
-      mask = addDirection(mask, directionBetween(cell, n));
+      mask |= directionBetween(cell, n);
     }
   }
   return mask;
 }
 
 function isOppositePair(mask: number): boolean {
-  return (
-    mask === (DIR_N | DIR_S) ||
-    mask === (DIR_E | DIR_W)
-  );
+  return mask === (DIR_N | DIR_S) || mask === (DIR_E | DIR_W);
 }
 
 function rotationForStraight(mask: number): number {
@@ -98,7 +83,8 @@ function pickTileFromMask(mask: number): {
   kind: RoadTileKind;
   rotationY: number;
 } {
-  const count = (mask & DIR_N ? 1 : 0) +
+  const count =
+    (mask & DIR_N ? 1 : 0) +
     (mask & DIR_E ? 1 : 0) +
     (mask & DIR_S ? 1 : 0) +
     (mask & DIR_W ? 1 : 0);
@@ -118,28 +104,7 @@ function pickTileFromMask(mask: number): {
   return { kind: 'cross', rotationY: 0 };
 }
 
-function blendTagColors(tags: string[]): string {
-  if (tags.length === 0) return '#8b6914';
-  if (tags.length === 1) return colorForTag(tags[0]);
-
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  for (const tag of tags) {
-    const hex = colorForTag(tag);
-    const n = parseInt(hex.slice(1), 16);
-    r += (n >> 16) & 255;
-    g += (n >> 8) & 255;
-    b += n & 255;
-  }
-  const n = tags.length;
-  r = Math.round(r / n);
-  g = Math.round(g / n);
-  b = Math.round(b / n);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
-
-/** Merge active tag road paths into one tile per grid cell. */
+/** One road GLB per fine grid cell on active tag paths. */
 export function mergeActiveRoadTiles(
   segments: RoadSegment[],
   activeTags: string[],
@@ -150,37 +115,25 @@ export function mergeActiveRoadTiles(
   const filtered = segments.filter((s) => active.has(s.tag));
   if (filtered.length === 0) return [];
 
-  const cellTags = new Map<string, Set<string>>();
+  const cellKeys = new Set<string>();
   const allPathCells = new Set<string>();
 
   for (const segment of filtered) {
     for (const cell of segment.gridCells) {
       const key = cellKey(cell.col, cell.row);
       allPathCells.add(key);
-      if (!cellTags.has(key)) cellTags.set(key, new Set());
-      cellTags.get(key)!.add(segment.tag);
+      cellKeys.add(key);
     }
   }
 
   const tiles: RoadTileInstance[] = [];
-  for (const [key, tags] of cellTags) {
+  for (const key of cellKeys) {
     const [col, row] = key.split(',').map(Number);
-    const tagList = [...tags].sort();
     const mask = maskForCell({ col, row }, allPathCells);
     if (mask === 0) continue;
 
     const { kind, rotationY } = pickTileFromMask(mask);
-    const overlap = tagList.length;
-    tiles.push({
-      col,
-      row,
-      kind,
-      rotationY,
-      tags: tagList,
-      overlap,
-      tint: blendTagColors(tagList),
-      emissiveIntensity: 0.08 + 0.08 * overlap,
-    });
+    tiles.push({ col, row, kind, rotationY });
   }
 
   tiles.sort((a, b) =>

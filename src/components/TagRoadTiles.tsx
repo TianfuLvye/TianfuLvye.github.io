@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ROAD_TILES } from '../config/road-catalog';
 import { cellCenter } from '../lib/grid';
+import { ROAD_TILE_Y_OFFSET } from '../lib/map-config';
 import type { RoadSegment } from '../lib/place-roads';
 import { mergeActiveRoadTiles } from '../lib/road-tiles';
 import GlTFModel from './GlTFModel';
@@ -33,10 +34,8 @@ export default function TagRoadTiles({ segments, activeTags }: Props) {
             <GlTFModel
               url={def.url}
               footprint={def.footprint}
-              yOffset={0.04}
+              yOffset={ROAD_TILE_Y_OFFSET}
               uniformScale
-              tintColor={tile.tint}
-              emissiveIntensity={tile.emissiveIntensity}
             />
           </group>
         );

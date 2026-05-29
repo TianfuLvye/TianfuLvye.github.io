@@ -34,7 +34,7 @@ export default function HUD({ view, continent, onBack }: Props) {
         {view.kind === 'globe' ? (
           <>drag · click a land · double-click to land on it</>
         ) : (
-          <>click a building · double-click to open · drag to pan</>
+          <>click a building · double-click to open · right-click ground to clear tags · drag to pan</>
         )}
       </div>
     </header>

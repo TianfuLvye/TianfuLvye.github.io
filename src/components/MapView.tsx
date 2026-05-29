@@ -122,6 +122,10 @@ export default function MapView({ continent, onOpenNote }: Props) {
         onClick={(e) => {
           e.stopPropagation();
           selectNote(null);
+        }}
+        onContextMenu={(e) => {
+          e.stopPropagation();
+          e.nativeEvent.preventDefault();
           clearActiveTags();
         }}
       >

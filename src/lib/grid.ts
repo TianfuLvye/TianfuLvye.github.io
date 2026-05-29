@@ -4,6 +4,7 @@ import {
   GRID_COLS,
   GRID_ROWS,
   MAP_SIZE,
+  type BuildingGridSpan,
 } from './map-config';
 import { rangeFrom } from './random';
 
@@ -107,74 +108,109 @@ export function overflowCells(): GridCell[] {
   return allCells().filter((c) => !isBuildableCell(c.col, c.row));
 }
 
-export function block2x2Cells(anchorCol: number, anchorRow: number): GridCell[] {
-  return [
-    { col: anchorCol, row: anchorRow },
-    { col: anchorCol + 1, row: anchorRow },
-    { col: anchorCol, row: anchorRow + 1 },
-    { col: anchorCol + 1, row: anchorRow + 1 },
-  ];
+/** All cells in an N×N block anchored at top-left. */
+export function blockCells(
+  anchorCol: number,
+  anchorRow: number,
+  span: number,
+): GridCell[] {
+  const cells: GridCell[] = [];
+  for (let dr = 0; dr < span; dr++) {
+    for (let dc = 0; dc < span; dc++) {
+      cells.push({ col: anchorCol + dc, row: anchorRow + dr });
+    }
+  }
+  return cells;
 }
 
-export function is2x2InBounds(anchorCol: number, anchorRow: number): boolean {
+export function isBlockInBounds(
+  anchorCol: number,
+  anchorRow: number,
+  span: number,
+): boolean {
   return (
     isInBounds(anchorCol, anchorRow) &&
-    isInBounds(anchorCol + 1, anchorRow + 1)
+    isInBounds(anchorCol + span - 1, anchorRow + span - 1)
   );
 }
 
-export function is2x2Buildable(anchorCol: number, anchorRow: number): boolean {
-  return block2x2Cells(anchorCol, anchorRow).every((c) =>
+export function isBlockBuildable(
+  anchorCol: number,
+  anchorRow: number,
+  span: number,
+): boolean {
+  return blockCells(anchorCol, anchorRow, span).every((c) =>
     isBuildableCell(c.col, c.row),
   );
 }
 
-/** Center of a 2×2 block (world XZ). */
-export function block2x2Center(
+/** World XZ center of an odd N×N block (anchor = top-left). */
+export function blockCenter(
   anchorCol: number,
   anchorRow: number,
+  span: number,
 ): [number, number] {
-  const [x0, z0] = cellCenter(anchorCol, anchorRow);
-  const [x1, z1] = cellCenter(anchorCol + 1, anchorRow + 1);
-  return [(x0 + x1) / 2, (z0 + z1) / 2];
+  const centerCol = anchorCol + (span - 1) / 2;
+  const centerRow = anchorRow + (span - 1) / 2;
+  return cellCenter(centerCol, centerRow);
 }
 
 export function buildingGridCells(
   anchorCol: number,
   anchorRow: number,
-  span: 1 | 2,
+  span: BuildingGridSpan,
 ): GridCell[] {
-  return span === 1
-    ? [{ col: anchorCol, row: anchorRow }]
-    : block2x2Cells(anchorCol, anchorRow);
+  return blockCells(anchorCol, anchorRow, span);
 }
 
 export function buildingWorldCenter(
   anchorCol: number,
   anchorRow: number,
-  span: 1 | 2,
+  span: BuildingGridSpan,
 ): [number, number] {
-  return span === 1
-    ? cellCenter(anchorCol, anchorRow)
-    : block2x2Center(anchorCol, anchorRow);
+  return blockCenter(anchorCol, anchorRow, span);
 }
 
-export function all2x2Anchors(): GridCell[] {
+/** Footprint plus a Chebyshev margin (for BUILDING_MIN_GAP). */
+export function blockCellsWithMargin(
+  anchorCol: number,
+  anchorRow: number,
+  span: number,
+  margin: number,
+): GridCell[] {
+  const cells: GridCell[] = [];
+  const minCol = anchorCol - margin;
+  const maxCol = anchorCol + span - 1 + margin;
+  const minRow = anchorRow - margin;
+  const maxRow = anchorRow + span - 1 + margin;
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      if (isInBounds(col, row)) cells.push({ col, row });
+    }
+  }
+  return cells;
+}
+
+export function allBlockAnchors(span: number): GridCell[] {
   const anchors: GridCell[] = [];
-  for (let row = 0; row < GRID_ROWS - 1; row++) {
-    for (let col = 0; col < GRID_COLS - 1; col++) {
+  for (let row = 0; row <= GRID_ROWS - span; row++) {
+    for (let col = 0; col <= GRID_COLS - span; col++) {
       anchors.push({ col, row });
     }
   }
   return anchors;
 }
 
-export function buildable2x2Anchors(): GridCell[] {
-  return all2x2Anchors().filter((a) => is2x2Buildable(a.col, a.row));
+export function buildableBlockAnchors(span: number): GridCell[] {
+  return allBlockAnchors(span).filter((a) =>
+    isBlockBuildable(a.col, a.row, span),
+  );
 }
 
-export function overflow2x2Anchors(): GridCell[] {
-  return all2x2Anchors().filter((a) => !is2x2Buildable(a.col, a.row));
+export function overflowBlockAnchors(span: number): GridCell[] {
+  return allBlockAnchors(span).filter(
+    (a) => !isBlockBuildable(a.col, a.row, span),
+  );
 }
 
 export function cellKey(col: number, row: number): string {
