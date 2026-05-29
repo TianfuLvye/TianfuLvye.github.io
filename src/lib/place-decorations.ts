@@ -13,7 +13,6 @@ import {
   type GridCell,
 } from './grid';
 import type { BuildingPlacement } from './layout';
-import type { BridgePlacement } from './place-bridges';
 import {
   DECOR_FLOWER_PATCH_DENSITY,
   DECOR_LARGE_MIN_BUILDING_DIST,
@@ -126,16 +125,10 @@ function pickPositionInCell(
   return null;
 }
 
-function initOccupancy(
-  buildings: BuildingPlacement[],
-  bridgePlacements: BridgePlacement[],
-): GridOccupancy {
+function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
   const occupancy = new GridOccupancy();
   for (const b of buildings) {
     occupancy.markBuildingCells(b.gridCells, b.note.id);
-  }
-  for (const p of bridgePlacements) {
-    occupancy.markBridgeCells(p.gridCells);
   }
   return occupancy;
 }
@@ -163,7 +156,6 @@ function placeBuildingAdjacent(
 
       for (let i = 0; i < count; i++) {
         const cell = building.gridCells[i % building.gridCells.length];
-        if (occupancy.hasBridge(cell.col, cell.row)) continue;
         const [x, z] = subCellWorldPosition(cell.col, cell.row, i + 1, rng);
 
         out.push({
@@ -199,7 +191,6 @@ function growForest(
         seen.add(k);
         if (occupancy.hasBuilding(n.col, n.row)) continue;
         if (occupancy.hasForest(n.col, n.row)) continue;
-        if (occupancy.hasBridge(n.col, n.row)) continue;
         frontier.push(n);
       }
     }
@@ -300,8 +291,7 @@ function placeForests(
     allCells().filter(
       (c) =>
         !occupancy.hasBuilding(c.col, c.row) &&
-        !occupancy.hasForest(c.col, c.row) &&
-        !occupancy.hasBridge(c.col, c.row),
+        !occupancy.hasForest(c.col, c.row),
     ),
     rng,
   );
@@ -433,12 +423,11 @@ export function placeDecorations(input: {
   continentId: string;
   mapSize: number;
   buildings: BuildingPlacement[];
-  bridgePlacements: BridgePlacement[];
 }): DecorationPlacement[] {
-  const { continentId, mapSize, buildings, bridgePlacements } = input;
+  const { continentId, mapSize, buildings } = input;
   const rng = rngFor(`decor:${continentId}`);
   const out: DecorationPlacement[] = [];
-  const occupancy = initOccupancy(buildings, bridgePlacements);
+  const occupancy = initOccupancy(buildings);
 
   placeBuildingAdjacent(continentId, buildings, occupancy, out);
   placeForests(rng, mapSize, occupancy, out);

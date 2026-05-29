@@ -74,9 +74,3 @@ export const BUILDING_MEDIUM_FOOTPRINT_MAX =
 
 /** Max horizontal extent for large buildings filling a 2×2 plot. */
 export const BUILDING_LARGE_FOOTPRINT_MAX = GRID_CELL_SIZE * 2 * 0.92;
-
-/** Max iterations for bridge-aware building placement convergence. */
-export const GRID_BRIDGE_MAX_ITERATIONS = 4;
-
-/** Junction disk diameter at bridge crossings (world units). */
-export const GRID_BRIDGE_JUNCTION_DISK_DIAMETER = GRID_CELL_SIZE / 3;

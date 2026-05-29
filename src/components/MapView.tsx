@@ -6,7 +6,6 @@ import { getBuilding } from '../config/building-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
 import { gridLineSegments } from '../lib/grid';
 import type { BuildingPlacement } from '../lib/layout';
-import type { BridgePlacement } from '../lib/place-bridges';
 import { placeContinentLayout } from '../lib/place-continent-layout';
 import {
   GRID_BUILDING_ROTATION,
@@ -15,11 +14,9 @@ import {
 } from '../lib/map-config';
 import { placeDecorations } from '../lib/place-decorations';
 import { useWorld } from '../store';
-import BridgeJunctionDisks from './BridgeJunctionDisks';
 import GlTFModel from './GlTFModel';
 import DecorationModel from './DecorationModel';
 import MapModelPreload from './MapModelPreload';
-import TagBridgePaths from './TagBridgePaths';
 
 /**
  * drei Html 在 OrthographicCamera 下用 scale = zoom × distanceFactor。
@@ -52,14 +49,12 @@ export default function MapView({ continent, onOpenNote }: Props) {
     () => placeContinentLayout(continent.notes, MAP_SIZE),
     [continent.notes],
   );
-  const { buildings, bridgePlacements, bridgeJunctions, tagBridges } = layout;
+  const { buildings } = layout;
   const sortKey = useWorld((s) => s.sortKey);
   const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
   const selectNote = useWorld((s) => s.selectNote);
   const selectedNoteId = useWorld((s) => s.selectedNote?.id ?? null);
-  const showTagPaths = useWorld((s) => s.showTagPaths);
   const showGridDebug = useWorld((s) => s.showGridDebug);
-  const selectTagBridge = useWorld((s) => s.selectTagBridge);
 
   // 根据 sortKey 排序，决定每个 note 的"漂浮顺序"
   const sortRank = useMemo(() => {
@@ -114,7 +109,6 @@ export default function MapView({ continent, onOpenNote }: Props) {
         onClick={(e) => {
           e.stopPropagation();
           selectNote(null);
-          selectTagBridge(null);
         }}
       >
         <planeGeometry args={[MAP_SIZE, MAP_SIZE, 1, 1]} />
@@ -133,23 +127,8 @@ export default function MapView({ continent, onOpenNote }: Props) {
       <Decorations
         continentId={continent.id}
         mapSize={MAP_SIZE}
-        bridgePlacements={bridgePlacements}
         buildings={buildings}
       />
-
-      {tagBridges.length > 0 && (
-        <>
-          <TagBridgePaths
-            bridges={tagBridges}
-            bridgePlacements={bridgePlacements}
-            visible={showTagPaths}
-          />
-          <BridgeJunctionDisks
-            junctions={bridgeJunctions}
-            visible={showTagPaths}
-          />
-        </>
-      )}
 
       {/* 建筑物 */}
       {buildings.map((b) => (
@@ -377,12 +356,10 @@ function FloatingPattern({ y, hue }: { y: number; hue: number }) {
 function Decorations({
   continentId,
   mapSize,
-  bridgePlacements,
   buildings,
 }: {
   continentId: string;
   mapSize: number;
-  bridgePlacements: BridgePlacement[];
   buildings: BuildingPlacement[];
 }) {
   const items = useMemo(
@@ -391,9 +368,8 @@ function Decorations({
         continentId,
         mapSize,
         buildings,
-        bridgePlacements,
       }),
-    [continentId, mapSize, buildings, bridgePlacements],
+    [continentId, mapSize, buildings],
   );
 
   return (

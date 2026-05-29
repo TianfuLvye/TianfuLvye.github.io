@@ -7,7 +7,6 @@ import MapView from './MapView';
 import CloudTransition from './CloudTransition';
 import DetailsPanel from './DetailsPanel';
 import Sidebar from './Sidebar';
-import BridgeTagInfoDock from './BridgeTagInfoDock';
 import GridDebugToggle from './GridDebugToggle';
 import HUD from './HUD';
 
@@ -113,9 +112,6 @@ export default function World({ tree }: Props) {
         />
       )}
 
-      {view.kind === 'map' && currentContinent && (
-        <BridgeTagInfoDock continent={currentContinent} />
-      )}
 
       {view.kind === 'map' && currentContinent && <GridDebugToggle />}
 

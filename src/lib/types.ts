@@ -19,22 +19,11 @@ export interface NoteData {
   building?: string;
 }
 
-export type TagBridgeKind = 'single' | 'dual' | 'rainbow';
-
-export interface TagBridge {
-  sourceId: string;
-  targetId: string;
-  tags: string[];
-  kind: TagBridgeKind;
-  priority: 1 | 2 | 3;
-}
-
 export interface ContinentData {
   id: string;            // 文件夹名，如 "travel"
   label: string;         // 展示名（首字母大写）
   notes: NoteData[];
   totalSize: number;     // 大陆总字数 = 各 note.size 之和
-  tagBridges: TagBridge[];
 }
 
 export type WorldTree = ContinentData[];

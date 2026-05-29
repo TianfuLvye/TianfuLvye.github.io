@@ -203,7 +203,7 @@ function nextFreeAnchor(
   return null;
 }
 
-/** Grid coordinates for bridge topology distance (Chebyshev). */
+/** Grid coordinates for building placement (Chebyshev). */
 export function gridPositionForBuilding(
   building: BuildingPlacement,
 ): readonly [number, number] {

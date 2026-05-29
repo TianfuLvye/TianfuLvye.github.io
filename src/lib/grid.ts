@@ -190,7 +190,6 @@ export function shuffleCells<T>(items: T[], rng: () => number): void {
 
 export class GridOccupancy {
   private buildings = new Map<string, string>();
-  private bridges = new Set<string>();
   private forests = new Map<string, number>();
   private flowerPatches = new Set<string>();
   private plantCounts = new Map<string, number>();
@@ -211,20 +210,6 @@ export class GridOccupancy {
 
   hasBuilding(col: number, row: number): boolean {
     return this.buildings.has(cellKey(col, row));
-  }
-
-  markBridge(col: number, row: number): void {
-    this.bridges.add(cellKey(col, row));
-  }
-
-  markBridgeCells(cells: GridCell[]): void {
-    for (const { col, row } of cells) {
-      this.markBridge(col, row);
-    }
-  }
-
-  hasBridge(col: number, row: number): boolean {
-    return this.bridges.has(cellKey(col, row));
   }
 
   setForest(col: number, row: number, forestId: number): void {
@@ -285,7 +270,6 @@ export class GridOccupancy {
   isOccupiedForWild(col: number, row: number): boolean {
     return (
       this.hasBuilding(col, row) ||
-      this.hasBridge(col, row) ||
       this.hasForest(col, row) ||
       this.hasFlowerPatch(col, row)
     );

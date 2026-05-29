@@ -13,12 +13,8 @@ interface WorldStore {
   sortKey: SortKey;
   /** 云朵转场是否正在进行 */
   transitioning: boolean;
-  /** 是否显示 tag 木板路 */
-  showTagPaths: boolean;
   /** 是否显示地图网格调试线 */
   showGridDebug: boolean;
-  /** 当前选中的 tag 桥（sourceId:targetId） */
-  selectedTagBridgeKey: string | null;
 
   enterMap: (continentId: string) => void;
   exitToGlobe: () => void;
@@ -28,9 +24,7 @@ interface WorldStore {
   hoverNotes: (ids: string[]) => void;
   setSort: (k: SortKey) => void;
   setTransitioning: (t: boolean) => void;
-  setShowTagPaths: (v: boolean) => void;
   setShowGridDebug: (v: boolean) => void;
-  selectTagBridge: (key: string | null) => void;
 }
 
 export const useWorld = create<WorldStore>((set) => ({
@@ -40,9 +34,7 @@ export const useWorld = create<WorldStore>((set) => ({
   hoveredNoteIds: [],
   sortKey: 'default',
   transitioning: false,
-  showTagPaths: false,
   showGridDebug: false,
-  selectedTagBridgeKey: null,
 
   enterMap: (continentId) =>
     set({
@@ -51,9 +43,7 @@ export const useWorld = create<WorldStore>((set) => ({
       hoveredNoteIds: [],
       sortKey: 'default',
       focusedContinent: null,
-      showTagPaths: false,
       showGridDebug: false,
-      selectedTagBridgeKey: null,
     }),
   exitToGlobe: () =>
     set({
@@ -61,9 +51,7 @@ export const useWorld = create<WorldStore>((set) => ({
       selectedNote: null,
       hoveredNoteIds: [],
       sortKey: 'default',
-      showTagPaths: false,
       showGridDebug: false,
-      selectedTagBridgeKey: null,
     }),
   focusContinent: (id) => set({ focusedContinent: id }),
   selectNote: (note) => set({ selectedNote: note }),
@@ -71,11 +59,5 @@ export const useWorld = create<WorldStore>((set) => ({
   hoverNotes: (ids) => set({ hoveredNoteIds: ids }),
   setSort: (k) => set({ sortKey: k }),
   setTransitioning: (t) => set({ transitioning: t }),
-  setShowTagPaths: (v) =>
-    set((s) => ({
-      showTagPaths: v,
-      selectedTagBridgeKey: v ? s.selectedTagBridgeKey : null,
-    })),
   setShowGridDebug: (v) => set({ showGridDebug: v }),
-  selectTagBridge: (key) => set({ selectedTagBridgeKey: key }),
 }));

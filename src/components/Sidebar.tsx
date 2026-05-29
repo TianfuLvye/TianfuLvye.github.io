@@ -21,8 +21,6 @@ const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
 export default function Sidebar({ continent, onPick }: Props) {
   const sortKey = useWorld((s) => s.sortKey);
   const setSort = useWorld((s) => s.setSort);
-  const showTagPaths = useWorld((s) => s.showTagPaths);
-  const setShowTagPaths = useWorld((s) => s.setShowTagPaths);
   const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
   const hoverNote = useWorld((s) => s.hoverNote);
 
@@ -65,18 +63,6 @@ export default function Sidebar({ continent, onPick }: Props) {
             {opt.label}
           </button>
         ))}
-      </div>
-
-      <div className="tag-paths-row">
-        <button
-          className={`sort-pill ${showTagPaths ? 'is-active' : ''}`}
-          onClick={() => setShowTagPaths(!showTagPaths)}
-        >
-          tag paths
-        </button>
-        {showTagPaths && (
-          <span className="tag-paths-hint">plank · dual · rainbow</span>
-        )}
       </div>
 
       <ul className="file-list">

@@ -1,8 +1,6 @@
 import type { CollectionEntry } from 'astro:content';
 import { RESERVED_NOTE_FOLDERS } from './content-paths';
-import { MAP_SIZE } from './map-config';
 import { resolveNoteDate, resolveNoteTitle } from './note-metadata';
-import { placeContinentLayout } from './place-continent-layout';
 import type { ContinentData, NoteData, WorldTree } from './types';
 
 function prettify(folder: string): string {
@@ -43,13 +41,11 @@ export function buildWorldTree(entries: CollectionEntry<'notes'>[]): WorldTree {
   for (const [id, notes] of groups) {
     const totalSize = notes.reduce((a, n) => a + n.size, 0);
     notes.sort((a, b) => a.id.localeCompare(b.id));
-    const { tagBridges } = placeContinentLayout(notes, MAP_SIZE);
     continents.push({
       id,
       label: prettify(id),
       notes,
       totalSize,
-      tagBridges,
     });
   }
   continents.sort((a, b) => a.id.localeCompare(b.id));
