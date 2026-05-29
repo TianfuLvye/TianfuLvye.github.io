@@ -1,14 +1,11 @@
 import * as THREE from 'three';
-import { buildingRadius, type BuildingPlacement } from './layout';
+import type { BridgePlacement } from './place-bridges';
 import { rngFor, rangeFrom } from './random';
 import type { TagBridge } from './types';
 import { colorForTag } from './tag-bridges';
 
 export const BASE_Y = 0.06;
 export const Y_LIFT = [0, 0.02, 0.04] as const;
-
-/** Extra gap between bridge end and building footprint edge. */
-export const BRIDGE_BUILDING_CLEARANCE = 0.3;
 
 /** Across the bridge deck (local X). */
 export const PLANK_SPAN = 0.54;
@@ -30,76 +27,24 @@ export const RAINBOW_COLORS = [
 ] as const;
 
 const WOOD_DARK = '#6b4a2a';
-const BRIDGE_CORRIDOR_RADIUS = 0.95;
 
-export function bridgeEndpointClearance(radius: number): number {
-  return radius + BRIDGE_BUILDING_CLEARANCE;
-}
-
-export function insetBridgeEndpoints(
-  startCenter: Readonly<[number, number, number]>,
-  endCenter: Readonly<[number, number, number]>,
-  startClearance: number,
-  endClearance: number,
-): { start: THREE.Vector3; end: THREE.Vector3 } {
-  const startCenter3 = new THREE.Vector3(startCenter[0], BASE_Y, startCenter[2]);
-  const endCenter3 = new THREE.Vector3(endCenter[0], BASE_Y, endCenter[2]);
-  const dx = endCenter3.x - startCenter3.x;
-  const dz = endCenter3.z - startCenter3.z;
-  const len = Math.hypot(dx, dz);
-  const totalInset = startClearance + endClearance;
-
-  if (len <= totalInset) {
-    const mid = startCenter3.clone().add(endCenter3).multiplyScalar(0.5);
-    mid.y = BASE_Y;
-    return { start: mid, end: mid.clone() };
+export function bridgeCurveFromWaypoints(
+  waypoints: THREE.Vector3[],
+): THREE.Curve<THREE.Vector3> {
+  if (waypoints.length < 2) {
+    const p = waypoints[0] ?? new THREE.Vector3(0, BASE_Y, 0);
+    return new THREE.LineCurve3(p, p.clone());
+  }
+  if (waypoints.length === 2) {
+    return new THREE.LineCurve3(waypoints[0], waypoints[1]);
   }
 
-  const nx = dx / len;
-  const nz = dz / len;
-  return {
-    start: new THREE.Vector3(
-      startCenter3.x + nx * startClearance,
-      BASE_Y,
-      startCenter3.z + nz * startClearance,
-    ),
-    end: new THREE.Vector3(
-      endCenter3.x - nx * endClearance,
-      BASE_Y,
-      endCenter3.z - nz * endClearance,
-    ),
-  };
-}
-
-export function bridgeEndpointsForBuildings(
-  a: BuildingPlacement,
-  b: BuildingPlacement,
-): { start: THREE.Vector3; end: THREE.Vector3 } {
-  return insetBridgeEndpoints(
-    a.position,
-    b.position,
-    bridgeEndpointClearance(buildingRadius(a)),
-    bridgeEndpointClearance(buildingRadius(b)),
-  );
-}
-
-export function bridgeCurve(
-  start: THREE.Vector3,
-  end: THREE.Vector3,
-  seed: string,
-): THREE.QuadraticBezierCurve3 {
-  const rng = rngFor(`curve:${seed}`);
-  const mid = start.clone().add(end).multiplyScalar(0.5);
-  const dx = end.x - start.x;
-  const dz = end.z - start.z;
-  const len = Math.hypot(dx, dz) || 1;
-  const nx = -dz / len;
-  const nz = dx / len;
-  const bulge = 0.15 + rng() * 0.25;
-  mid.y = BASE_Y + 0.04;
-  mid.x += nx * bulge;
-  mid.z += nz * bulge;
-  return new THREE.QuadraticBezierCurve3(start, mid, end);
+  // Grid paths are orthogonal polylines; CatmullRom breaks on collinear points.
+  const path = new THREE.CurvePath<THREE.Vector3>();
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    path.add(new THREE.LineCurve3(waypoints[i], waypoints[i + 1]));
+  }
+  return path;
 }
 
 export function computePlankCount(curve: THREE.Curve<THREE.Vector3>): number {
@@ -186,26 +131,42 @@ function offsetPoint(
   return point.clone().addScaledVector(side, lateral);
 }
 
+function tangentAlongSpacedPoints(
+  points: THREE.Vector3[],
+  index: number,
+): THREE.Vector3 {
+  if (points.length === 1) return new THREE.Vector3(0, 0, 1);
+  if (index === 0) {
+    return points[1].clone().sub(points[0]).normalize();
+  }
+  if (index === points.length - 1) {
+    return points[index].clone().sub(points[index - 1]).normalize();
+  }
+  const fwd = points[index + 1].clone().sub(points[index]);
+  const back = points[index].clone().sub(points[index - 1]);
+  const avg = fwd.add(back);
+  if (avg.lengthSq() < 1e-8) return fwd.normalize();
+  return avg.normalize();
+}
+
 function sampleCurveFrames(
-  curve: THREE.QuadraticBezierCurve3,
+  curve: THREE.Curve<THREE.Vector3>,
   count: number,
 ): Array<{ point: THREE.Vector3; tangent: THREE.Vector3 }> {
   const spaced = curve.getSpacedPoints(count);
-  return spaced.map((point, i) => {
-    const t = i / Math.max(count - 1, 1);
-    const tangent = curve.getTangentAt(t).normalize();
-    return { point, tangent };
-  });
+  return spaced.map((point, i) => ({
+    point,
+    tangent: tangentAlongSpacedPoints(spaced, i),
+  }));
 }
 
 export function buildBridgeMeshSpec(
   bridge: TagBridge,
-  start: THREE.Vector3,
-  end: THREE.Vector3,
+  placement: BridgePlacement,
 ): BridgeMeshSpec {
   const seed = `${bridge.sourceId}:${bridge.targetId}`;
   const rng = rngFor(`bridge:${seed}`);
-  const curve = bridgeCurve(start, end, seed);
+  const curve = bridgeCurveFromWaypoints(placement.waypoints);
   const plankCount = computePlankCount(curve);
   const yLift = Y_LIFT[bridge.priority - 1];
   const renderOrder = bridge.priority;
@@ -231,16 +192,12 @@ export function buildBridgeMeshSpec(
 
   const stringerOffset = STRINGER_LATERAL_OFFSET;
   const stringerPoints = curve.getSpacedPoints(Math.max(8, plankCount));
-  const leftPts = stringerPoints.map((p, i) => {
-    const t = i / Math.max(stringerPoints.length - 1, 1);
-    const tangent = curve.getTangentAt(t).normalize();
-    return offsetPoint(p, tangent, -stringerOffset);
-  });
-  const rightPts = stringerPoints.map((p, i) => {
-    const t = i / Math.max(stringerPoints.length - 1, 1);
-    const tangent = curve.getTangentAt(t).normalize();
-    return offsetPoint(p, tangent, stringerOffset);
-  });
+  const leftPts = stringerPoints.map((p, i) =>
+    offsetPoint(p, tangentAlongSpacedPoints(stringerPoints, i), -stringerOffset),
+  );
+  const rightPts = stringerPoints.map((p, i) =>
+    offsetPoint(p, tangentAlongSpacedPoints(stringerPoints, i), stringerOffset),
+  );
 
   const stringerColor = colorForTag(bridge.tags[0]);
 
@@ -252,11 +209,11 @@ export function buildBridgeMeshSpec(
   const curveLen = curve.getLength();
   const pilingCount = Math.max(2, Math.floor(curveLen / 2.5) + 1);
   const pilingHeight = 0.11 + yLift;
+  const pilingPoints = curve.getSpacedPoints(pilingCount);
   const pilings: PilingSpec[] = [];
   for (let i = 0; i < pilingCount; i++) {
-    const t = i / (pilingCount - 1);
-    const point = curve.getPointAt(t);
-    const tangent = curve.getTangentAt(t).normalize();
+    const point = pilingPoints[i];
+    const tangent = tangentAlongSpacedPoints(pilingPoints, i);
     for (const lateral of [-stringerOffset, stringerOffset]) {
       const p = offsetPoint(point, tangent, lateral);
       pilings.push({
@@ -286,19 +243,19 @@ export function buildBridgeMeshSpec(
 
 /** Ribbon mesh between the two stringers for stable bridge-level hover. */
 export function buildBridgeDeckHitGeometry(
-  curve: THREE.QuadraticBezierCurve3,
+  curve: THREE.Curve<THREE.Vector3>,
   deckY: number,
   halfWidth: number,
   plankCount: number,
 ): THREE.BufferGeometry {
   const segments = Math.max(plankCount * 3, 16);
+  const centerPoints = curve.getSpacedPoints(segments + 1);
   const verts: number[] = [];
   const indices: number[] = [];
 
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const p = curve.getPointAt(t);
-    const tangent = curve.getTangentAt(t).normalize();
+  for (let i = 0; i < centerPoints.length; i++) {
+    const p = centerPoints[i];
+    const tangent = tangentAlongSpacedPoints(centerPoints, i);
     const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
     const left = p
       .clone()
@@ -311,7 +268,7 @@ export function buildBridgeDeckHitGeometry(
     verts.push(left.x, left.y, left.z, right.x, right.y, right.z);
   }
 
-  for (let i = 0; i < segments; i++) {
+  for (let i = 0; i < centerPoints.length - 1; i++) {
     const a = i * 2;
     const b = a + 1;
     const c = a + 2;
@@ -344,44 +301,4 @@ export function pickPlankIndexAtPoint(
   return best;
 }
 
-/** Sample xz points along all bridge curves for decor exclusion. */
-export function sampleBridgeCorridor(
-  bridges: TagBridge[],
-  buildings: BuildingPlacement[],
-): Array<[number, number]> {
-  const byId = new Map(buildings.map((b) => [b.note.id, b]));
-  const points: Array<[number, number]> = [];
-
-  for (const bridge of bridges) {
-    const a = byId.get(bridge.sourceId);
-    const b = byId.get(bridge.targetId);
-    if (!a || !b) continue;
-
-    const { start, end } = bridgeEndpointsForBuildings(a, b);
-    const seed = `${bridge.sourceId}:${bridge.targetId}`;
-    const curve = bridgeCurve(start, end, seed);
-    const steps = Math.max(10, Math.ceil(curve.getLength() / 0.35));
-    for (const p of curve.getSpacedPoints(steps)) {
-      points.push([p.x, p.z]);
-    }
-  }
-
-  return points;
-}
-
-export function isNearBridgeCorridor(
-  x: number,
-  z: number,
-  corridor: Array<[number, number]>,
-  radius = BRIDGE_CORRIDOR_RADIUS,
-): boolean {
-  const r2 = radius * radius;
-  for (const [bx, bz] of corridor) {
-    const dx = x - bx;
-    const dz = z - bz;
-    if (dx * dx + dz * dz < r2) return true;
-  }
-  return false;
-}
-
-export { WOOD_DARK, BRIDGE_CORRIDOR_RADIUS };
+export { WOOD_DARK };

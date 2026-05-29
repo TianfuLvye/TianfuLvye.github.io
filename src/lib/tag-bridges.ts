@@ -67,7 +67,9 @@ export function distanceBetween(
 ): number {
   const pa = positions?.get(aId);
   const pb = positions?.get(bId);
-  if (pa && pb) return Math.hypot(pa[0] - pb[0], pa[1] - pb[1]);
+  if (pa && pb) {
+    return Math.max(Math.abs(pa[0] - pb[0]), Math.abs(pa[1] - pb[1]));
+  }
   return Math.abs(aId.localeCompare(bId));
 }
 

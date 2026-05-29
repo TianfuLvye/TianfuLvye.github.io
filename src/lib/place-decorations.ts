@@ -6,15 +6,14 @@ import {
 } from '../config/decoration-catalog';
 import {
   allCells,
-  cellCenter,
   GridOccupancy,
   neighbors4,
   shuffleCells,
   subCellWorldPosition,
   type GridCell,
 } from './grid';
-import { isNearBridgeCorridor } from './plank-bridge';
 import type { BuildingPlacement } from './layout';
+import type { BridgePlacement } from './place-bridges';
 import {
   DECOR_FLOWER_PATCH_DENSITY,
   DECOR_LARGE_MIN_BUILDING_DIST,
@@ -57,24 +56,6 @@ function rotationToward(
   toZ: number,
 ): number {
   return Math.atan2(toX - fromX, toZ - fromZ);
-}
-
-function isBridgeClear(
-  x: number,
-  z: number,
-  bridgeCorridor: Array<[number, number]>,
-): boolean {
-  return !isNearBridgeCorridor(x, z, bridgeCorridor);
-}
-
-function isCellBridgeClear(
-  col: number,
-  row: number,
-  bridgeCorridor: Array<[number, number]>,
-): boolean {
-  const [cx, cz] = cellCenter(col, row);
-  if (!isBridgeClear(cx, cz, bridgeCorridor)) return false;
-  return true;
 }
 
 function largePropMinChebyshev(def: DecorationDef | undefined): number {
@@ -145,10 +126,16 @@ function pickPositionInCell(
   return null;
 }
 
-function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
+function initOccupancy(
+  buildings: BuildingPlacement[],
+  bridgePlacements: BridgePlacement[],
+): GridOccupancy {
   const occupancy = new GridOccupancy();
   for (const b of buildings) {
     occupancy.markBuildingCells(b.gridCells, b.note.id);
+  }
+  for (const p of bridgePlacements) {
+    occupancy.markBridgeCells(p.gridCells);
   }
   return occupancy;
 }
@@ -156,7 +143,6 @@ function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
 function placeBuildingAdjacent(
   continentId: string,
   buildings: BuildingPlacement[],
-  bridgeCorridor: Array<[number, number]>,
   occupancy: GridOccupancy,
   out: DecorationPlacement[],
 ) {
@@ -177,8 +163,8 @@ function placeBuildingAdjacent(
 
       for (let i = 0; i < count; i++) {
         const cell = building.gridCells[i % building.gridCells.length];
+        if (occupancy.hasBridge(cell.col, cell.row)) continue;
         const [x, z] = subCellWorldPosition(cell.col, cell.row, i + 1, rng);
-        if (!isBridgeClear(x, z, bridgeCorridor)) continue;
 
         out.push({
           decorId: def.id,
@@ -198,7 +184,6 @@ function growForest(
   targetSize: number,
   forestId: number,
   occupancy: GridOccupancy,
-  bridgeCorridor: Array<[number, number]>,
 ): GridCell[] {
   const cells: GridCell[] = [start];
   occupancy.setForest(start.col, start.row, forestId);
@@ -214,7 +199,7 @@ function growForest(
         seen.add(k);
         if (occupancy.hasBuilding(n.col, n.row)) continue;
         if (occupancy.hasForest(n.col, n.row)) continue;
-        if (!isCellBridgeClear(n.col, n.row, bridgeCorridor)) continue;
+        if (occupancy.hasBridge(n.col, n.row)) continue;
         frontier.push(n);
       }
     }
@@ -234,7 +219,6 @@ function placeForestCellDecor(
   cell: GridCell,
   treePool: DecorationDef[],
   groundPool: DecorationDef[],
-  bridgeCorridor: Array<[number, number]>,
   occupancy: GridOccupancy,
   out: DecorationPlacement[],
 ) {
@@ -259,8 +243,6 @@ function placeForestCellDecor(
     if (!pos) continue;
 
     const [x, z] = pos;
-    if (!isBridgeClear(x, z, bridgeCorridor)) continue;
-
     treePositions.push([x, z]);
     out.push({
       decorId,
@@ -291,8 +273,6 @@ function placeForestCellDecor(
     if (!pos) continue;
 
     const [x, z] = pos;
-    if (!isBridgeClear(x, z, bridgeCorridor)) continue;
-
     out.push({
       decorId,
       position: [x, 0, z],
@@ -307,7 +287,6 @@ function placeForests(
   rng: () => number,
   mapSize: number,
   occupancy: GridOccupancy,
-  bridgeCorridor: Array<[number, number]>,
   out: DecorationPlacement[],
 ) {
   const forestPool = decorationsByClusterKind('forest');
@@ -322,7 +301,7 @@ function placeForests(
       (c) =>
         !occupancy.hasBuilding(c.col, c.row) &&
         !occupancy.hasForest(c.col, c.row) &&
-        isCellBridgeClear(c.col, c.row, bridgeCorridor),
+        !occupancy.hasBridge(c.col, c.row),
     ),
     rng,
   );
@@ -350,7 +329,6 @@ function placeForests(
       size,
       forestId,
       occupancy,
-      bridgeCorridor,
     );
 
     for (const cell of forestCells) {
@@ -359,7 +337,6 @@ function placeForests(
         cell,
         treePool,
         groundPool,
-        bridgeCorridor,
         occupancy,
         out,
       );
@@ -374,7 +351,6 @@ function placeFlowerPatches(
   rng: () => number,
   mapSize: number,
   occupancy: GridOccupancy,
-  bridgeCorridor: Array<[number, number]>,
   out: DecorationPlacement[],
 ) {
   const flowerPool = decorationsByClusterKind('flower');
@@ -382,11 +358,7 @@ function placeFlowerPatches(
 
   const target = Math.round(DECOR_FLOWER_PATCH_DENSITY * (mapSize / 18));
   const candidates = shuffleCopy(
-    allCells().filter(
-      (c) =>
-        !occupancy.isOccupiedForWild(c.col, c.row) &&
-        isCellBridgeClear(c.col, c.row, bridgeCorridor),
-    ),
+    allCells().filter((c) => !occupancy.isOccupiedForWild(c.col, c.row)),
     rng,
   );
 
@@ -399,7 +371,6 @@ function placeFlowerPatches(
       const decorId = pickFromPool(rng, flowerPool);
       if (!decorId) continue;
       const [x, z] = subCellWorldPosition(cell.col, cell.row, i + 2, rng);
-      if (!isBridgeClear(x, z, bridgeCorridor)) continue;
       out.push({
         decorId,
         position: [x, 0, z],
@@ -416,7 +387,6 @@ function placeWildScatter(
   rng: () => number,
   mapSize: number,
   occupancy: GridOccupancy,
-  bridgeCorridor: Array<[number, number]>,
   out: DecorationPlacement[],
 ) {
   const wildPool = decorationsByZone('wild');
@@ -424,11 +394,7 @@ function placeWildScatter(
 
   const target = Math.round(DECOR_WILD_SCATTER_DENSITY * (mapSize / 18));
   const candidates = shuffleCopy(
-    allCells().filter(
-      (c) =>
-        !occupancy.isOccupiedForWild(c.col, c.row) &&
-        isCellBridgeClear(c.col, c.row, bridgeCorridor),
-    ),
+    allCells().filter((c) => !occupancy.isOccupiedForWild(c.col, c.row)),
     rng,
   );
 
@@ -446,7 +412,6 @@ function placeWildScatter(
     }
 
     const [x, z] = subCellWorldPosition(cell.col, cell.row, 0, rng);
-    if (!isBridgeClear(x, z, bridgeCorridor)) continue;
 
     out.push({
       decorId,
@@ -468,17 +433,17 @@ export function placeDecorations(input: {
   continentId: string;
   mapSize: number;
   buildings: BuildingPlacement[];
-  bridgeCorridor: Array<[number, number]>;
+  bridgePlacements: BridgePlacement[];
 }): DecorationPlacement[] {
-  const { continentId, mapSize, buildings, bridgeCorridor } = input;
+  const { continentId, mapSize, buildings, bridgePlacements } = input;
   const rng = rngFor(`decor:${continentId}`);
   const out: DecorationPlacement[] = [];
-  const occupancy = initOccupancy(buildings);
+  const occupancy = initOccupancy(buildings, bridgePlacements);
 
-  placeBuildingAdjacent(continentId, buildings, bridgeCorridor, occupancy, out);
-  placeForests(rng, mapSize, occupancy, bridgeCorridor, out);
-  placeFlowerPatches(rng, mapSize, occupancy, bridgeCorridor, out);
-  placeWildScatter(rng, mapSize, occupancy, bridgeCorridor, out);
+  placeBuildingAdjacent(continentId, buildings, occupancy, out);
+  placeForests(rng, mapSize, occupancy, out);
+  placeFlowerPatches(rng, mapSize, occupancy, out);
+  placeWildScatter(rng, mapSize, occupancy, out);
 
   return out;
 }

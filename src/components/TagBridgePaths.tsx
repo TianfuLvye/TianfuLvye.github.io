@@ -11,10 +11,9 @@ import {
 } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { BuildingPlacement } from '../lib/layout';
+import type { BridgePlacement } from '../lib/place-bridges';
 import {
   BASE_Y,
-  bridgeEndpointsForBuildings,
   buildBridgeMeshSpec,
   buildPlankGeometry,
   pickPlankIndexAtPoint,
@@ -39,7 +38,7 @@ import { useWorld } from '../store';
 
 interface Props {
   bridges: TagBridge[];
-  buildings: BuildingPlacement[];
+  bridgePlacements: BridgePlacement[];
   visible: boolean;
 }
 
@@ -466,35 +465,33 @@ function TagBridgeMesh({
 }
 
 function TagBridge({
-  bridge,
-  buildingsById,
+  placement,
 }: {
-  bridge: TagBridge;
-  buildingsById: Map<string, BuildingPlacement>;
+  placement: BridgePlacement;
 }) {
-  const bKey = bridgeKey(bridge);
+  const bKey = bridgeKey(placement.bridge);
 
-  const spec = useMemo(() => {
-    const a = buildingsById.get(bridge.sourceId);
-    const b = buildingsById.get(bridge.targetId);
-    if (!a || !b) return null;
-
-    const { start, end } = bridgeEndpointsForBuildings(a, b);
-    return buildBridgeMeshSpec(bridge, start, end);
-  }, [bridge, buildingsById]);
-
-  if (!spec) return null;
+  const spec = useMemo(
+    () => buildBridgeMeshSpec(placement.bridge, placement),
+    [placement],
+  );
 
   return <TagBridgeMesh spec={spec} bKey={bKey} />;
 }
 
-export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
+export default function TagBridgePaths({
+  bridges,
+  bridgePlacements,
+  visible,
+}: Props) {
   const selectTagBridge = useWorld((s) => s.selectTagBridge);
-  const buildingsById = useMemo(() => {
-    const m = new Map<string, BuildingPlacement>();
-    for (const b of buildings) m.set(b.note.id, b);
+  const placementsByKey = useMemo(() => {
+    const m = new Map<string, BridgePlacement>();
+    for (const p of bridgePlacements) {
+      m.set(bridgeKey(p.bridge), p);
+    }
     return m;
-  }, [buildings]);
+  }, [bridgePlacements]);
 
   const ordered = useMemo(
     () => [...bridges].sort((a, b) => a.priority - b.priority),
@@ -526,7 +523,7 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
   useEffect(() => {
     if (visible) {
       setHasActivated(true);
-      const schedule = computeRiseSchedule(bridges, buildingsById);
+      const schedule = computeRiseSchedule(bridgePlacements);
       setRiseSchedule(schedule);
       setRiseStartMs(performance.now());
       setPhase('rising');
@@ -540,7 +537,7 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
       setSinkStartMs(performance.now());
       setPhase('sinking');
     }
-  }, [visible, bridges, buildingsById, setHover, selectTagBridge]);
+  }, [visible, bridgePlacements, setHover, selectTagBridge]);
 
   useFrame(() => {
     const now = performance.now();
@@ -582,13 +579,16 @@ export default function TagBridgePaths({ bridges, buildings, visible }: Props) {
     <TagBridgeAnimationContext.Provider value={animValue}>
       <BridgeInteractionContext.Provider value={interactionValue}>
         <group>
-          {ordered.map((bridge) => (
-            <TagBridge
-              key={`${bridge.sourceId}:${bridge.targetId}`}
-              bridge={bridge}
-              buildingsById={buildingsById}
-            />
-          ))}
+          {ordered.map((bridge) => {
+            const placement = placementsByKey.get(bridgeKey(bridge));
+            if (!placement) return null;
+            return (
+              <TagBridge
+                key={`${bridge.sourceId}:${bridge.targetId}`}
+                placement={placement}
+              />
+            );
+          })}
         </group>
       </BridgeInteractionContext.Provider>
     </TagBridgeAnimationContext.Provider>

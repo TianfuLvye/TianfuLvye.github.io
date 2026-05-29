@@ -169,9 +169,13 @@ function blockIsFree(
   anchor: GridCell,
   span: 1 | 2,
   taken: Set<string>,
+  blockedCells: Set<string>,
 ): boolean {
   const cells = buildingGridCells(anchor.col, anchor.row, span);
-  return cells.every((c) => !taken.has(cellKey(c.col, c.row)));
+  return cells.every((c) => {
+    const k = cellKey(c.col, c.row);
+    return !taken.has(k) && !blockedCells.has(k);
+  });
 }
 
 function markBlock(
@@ -189,13 +193,24 @@ function nextFreeAnchor(
   startIdx: number,
   span: 1 | 2,
   taken: Set<string>,
+  blockedCells: Set<string>,
 ): { anchor: GridCell; nextIdx: number } | null {
   for (let i = startIdx; i < anchors.length; i++) {
-    if (blockIsFree(anchors[i], span, taken)) {
+    if (blockIsFree(anchors[i], span, taken, blockedCells)) {
       return { anchor: anchors[i], nextIdx: i + 1 };
     }
   }
   return null;
+}
+
+/** Grid coordinates for bridge topology distance (Chebyshev). */
+export function gridPositionForBuilding(
+  building: BuildingPlacement,
+): readonly [number, number] {
+  if (building.gridSpan === 1) {
+    return [building.gridCol, building.gridRow] as const;
+  }
+  return [building.gridCol + 0.5, building.gridRow + 0.5] as const;
 }
 
 /**
@@ -205,7 +220,9 @@ function nextFreeAnchor(
 export function placeBuildings(
   notes: NoteData[],
   _mapSize: number,
+  options?: { blockedCells?: Set<string> },
 ): BuildingPlacement[] {
+  const blockedCells = options?.blockedCells ?? new Set<string>();
   const continentId = notes[0]?.continentId ?? 'unknown';
   const cellRng = rngFor(`building-cells:${continentId}`);
 
@@ -243,8 +260,8 @@ export function placeBuildings(
 
     const slot =
       gridSpan === 1
-        ? nextFreeAnchor(singleAnchors, singleIdx, 1, taken)
-        : nextFreeAnchor(blockAnchors, blockIdx, 2, taken);
+        ? nextFreeAnchor(singleAnchors, singleIdx, 1, taken, blockedCells)
+        : nextFreeAnchor(blockAnchors, blockIdx, 2, taken, blockedCells);
 
     if (!slot) {
       console.warn(

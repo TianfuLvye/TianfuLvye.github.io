@@ -1,11 +1,9 @@
-import * as THREE from 'three';
-import type { BuildingPlacement } from './layout';
-import type { TagBridge } from './types';
+import type { BridgePlacement } from './place-bridges';
 import {
-  bridgeCurve,
-  bridgeEndpointsForBuildings,
+  bridgeCurveFromWaypoints,
   computePlankCount,
 } from './plank-bridge';
+import type { TagBridge } from './types';
 
 export const RISE_DURATION_MS = 460;
 export const SINK_DURATION_MS = 350;
@@ -54,16 +52,8 @@ function endpointIndexAtBuilding(meta: BridgeMeta, buildingId: string): number |
   return null;
 }
 
-export function computeBridgePlankCount(
-  bridge: TagBridge,
-  buildingsById: Map<string, BuildingPlacement>,
-): number {
-  const a = buildingsById.get(bridge.sourceId);
-  const b = buildingsById.get(bridge.targetId);
-  if (!a || !b) return 0;
-  const key = bridgeKey(bridge);
-  const { start, end } = bridgeEndpointsForBuildings(a, b);
-  const curve = bridgeCurve(start, end, key);
+export function computeBridgePlankCount(placement: BridgePlacement): number {
+  const curve = bridgeCurveFromWaypoints(placement.waypoints);
   return computePlankCount(curve);
 }
 
@@ -113,19 +103,18 @@ export function sinkYOffsetFrom(
 }
 
 export function computeRiseSchedule(
-  bridges: TagBridge[],
-  buildingsById: Map<string, BuildingPlacement>,
+  bridgePlacements: BridgePlacement[],
 ): Map<string, number> {
   const metas: BridgeMeta[] = [];
   const bridgesByBuilding = new Map<string, BridgeMeta[]>();
 
-  for (const bridge of bridges) {
-    const key = bridgeKey(bridge);
-    const plankCount = computeBridgePlankCount(bridge, buildingsById);
+  for (const placement of bridgePlacements) {
+    const key = bridgeKey(placement.bridge);
+    const plankCount = computeBridgePlankCount(placement);
     if (plankCount < 1) continue;
-    const meta: BridgeMeta = { bridge, key, plankCount };
+    const meta: BridgeMeta = { bridge: placement.bridge, key, plankCount };
     metas.push(meta);
-    for (const id of [bridge.sourceId, bridge.targetId]) {
+    for (const id of [placement.bridge.sourceId, placement.bridge.targetId]) {
       if (!bridgesByBuilding.has(id)) bridgesByBuilding.set(id, []);
       bridgesByBuilding.get(id)!.push(meta);
     }

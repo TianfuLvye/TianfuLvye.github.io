@@ -5,18 +5,17 @@ import * as THREE from 'three';
 import { getBuilding } from '../config/building-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
 import { gridLineSegments } from '../lib/grid';
-import { placeBuildings, type BuildingPlacement } from '../lib/layout';
+import type { BuildingPlacement } from '../lib/layout';
+import type { BridgePlacement } from '../lib/place-bridges';
+import { placeContinentLayout } from '../lib/place-continent-layout';
 import {
   GRID_BUILDING_ROTATION,
   MAP_CAMERA_ZOOM,
   MAP_SIZE,
 } from '../lib/map-config';
-import {
-  sampleBridgeCorridor,
-} from '../lib/plank-bridge';
 import { placeDecorations } from '../lib/place-decorations';
-import type { TagBridge } from '../lib/types';
 import { useWorld } from '../store';
+import BridgeJunctionDisks from './BridgeJunctionDisks';
 import GlTFModel from './GlTFModel';
 import DecorationModel from './DecorationModel';
 import MapModelPreload from './MapModelPreload';
@@ -49,10 +48,11 @@ interface Props {
 }
 
 export default function MapView({ continent, onOpenNote }: Props) {
-  const buildings = useMemo(
-    () => placeBuildings(continent.notes, MAP_SIZE),
+  const layout = useMemo(
+    () => placeContinentLayout(continent.notes, MAP_SIZE),
     [continent.notes],
   );
+  const { buildings, bridgePlacements, bridgeJunctions, tagBridges } = layout;
   const sortKey = useWorld((s) => s.sortKey);
   const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
   const selectNote = useWorld((s) => s.selectNote);
@@ -133,16 +133,22 @@ export default function MapView({ continent, onOpenNote }: Props) {
       <Decorations
         continentId={continent.id}
         mapSize={MAP_SIZE}
-        bridges={continent.tagBridges}
+        bridgePlacements={bridgePlacements}
         buildings={buildings}
       />
 
-      {continent.tagBridges.length > 0 && (
-        <TagBridgePaths
-          bridges={continent.tagBridges}
-          buildings={buildings}
-          visible={showTagPaths}
-        />
+      {tagBridges.length > 0 && (
+        <>
+          <TagBridgePaths
+            bridges={tagBridges}
+            bridgePlacements={bridgePlacements}
+            visible={showTagPaths}
+          />
+          <BridgeJunctionDisks
+            junctions={bridgeJunctions}
+            visible={showTagPaths}
+          />
+        </>
       )}
 
       {/* 建筑物 */}
@@ -371,28 +377,23 @@ function FloatingPattern({ y, hue }: { y: number; hue: number }) {
 function Decorations({
   continentId,
   mapSize,
-  bridges,
+  bridgePlacements,
   buildings,
 }: {
   continentId: string;
   mapSize: number;
-  bridges: TagBridge[];
+  bridgePlacements: BridgePlacement[];
   buildings: BuildingPlacement[];
 }) {
-  const corridor = useMemo(
-    () => sampleBridgeCorridor(bridges, buildings),
-    [bridges, buildings],
-  );
-
   const items = useMemo(
     () =>
       placeDecorations({
         continentId,
         mapSize,
         buildings,
-        bridgeCorridor: corridor,
+        bridgePlacements,
       }),
-    [continentId, mapSize, buildings, corridor],
+    [continentId, mapSize, buildings, bridgePlacements],
   );
 
   return (
