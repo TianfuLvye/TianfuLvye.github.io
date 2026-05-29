@@ -77,7 +77,7 @@ function largePropMinChebyshev(def: DecorationDef | undefined): number {
 function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
   const occupancy = new GridOccupancy();
   for (const b of buildings) {
-    occupancy.setBuilding(b.gridCol, b.gridRow, b.note.id);
+    occupancy.markBuildingCells(b.gridCells, b.note.id);
   }
   return occupancy;
 }
@@ -93,7 +93,8 @@ function placeBuildingAdjacent(
 
   for (const building of buildings) {
     const rng = rngFor(`decor:${continentId}:${building.note.id}`);
-    const [bx, bz] = cellCenter(building.gridCol, building.gridRow);
+    const bx = building.position[0];
+    const bz = building.position[2];
 
     for (const def of potPool) {
       const chance = def.buildingChance ?? DECOR_POT_BUILDING_CHANCE;
@@ -104,12 +105,8 @@ function placeBuildingAdjacent(
         minCount + Math.floor(rng() * (maxCount - minCount + 1));
 
       for (let i = 0; i < count; i++) {
-        const [x, z] = subCellWorldPosition(
-          building.gridCol,
-          building.gridRow,
-          i + 1,
-          rng,
-        );
+        const cell = building.gridCells[i % building.gridCells.length];
+        const [x, z] = subCellWorldPosition(cell.col, cell.row, i + 1, rng);
         if (!isBridgeClear(x, z, bridgeCorridor)) continue;
 
         out.push({
@@ -118,7 +115,7 @@ function placeBuildingAdjacent(
           rotation: rotationToward(x, z, bx, bz) + rangeFrom(rng, -0.3, 0.3),
           scale: scaleJitter(rng),
         });
-        occupancy.incrementPlants(building.gridCol, building.gridRow);
+        occupancy.incrementPlants(cell.col, cell.row);
       }
     }
   }

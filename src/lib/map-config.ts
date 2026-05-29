@@ -47,3 +47,16 @@ export const DECOR_FLOWER_PATCH_DENSITY = 5;
 
 /** Wild scatter count baseline at MAP_SIZE = 18. */
 export const DECOR_WILD_SCATTER_DENSITY = 35;
+
+/** Max horizontal extent (world units) for a small building in one cell. */
+export const BUILDING_SMALL_FOOTPRINT_MAX = GRID_CELL_SIZE * 0.88;
+
+/**
+ * Max horizontal extent for medium buildings on a 2×2 plot.
+ * Area ≤ 2 cells → square side ≈ √2 × cell size.
+ */
+export const BUILDING_MEDIUM_FOOTPRINT_MAX =
+  GRID_CELL_SIZE * Math.SQRT2 * 0.92;
+
+/** Max horizontal extent for large buildings filling a 2×2 plot. */
+export const BUILDING_LARGE_FOOTPRINT_MAX = GRID_CELL_SIZE * 2 * 0.92;

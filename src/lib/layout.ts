@@ -1,11 +1,22 @@
-import { getBuilding } from '../config/building-catalog';
+import { getBuilding, type SizeTier } from '../config/building-catalog';
 import {
+  buildable2x2Anchors,
   buildableCells,
-  cellCenter,
+  buildingGridCells,
+  buildingWorldCenter,
+  cellKey,
+  overflow2x2Anchors,
   overflowCells,
   shuffleCells,
+  type GridCell,
 } from './grid';
-import { BUILDING_FOOTPRINT_SCALE, GRID_BUILDING_ROTATION } from './map-config';
+import {
+  BUILDING_LARGE_FOOTPRINT_MAX,
+  BUILDING_MEDIUM_FOOTPRINT_MAX,
+  BUILDING_SMALL_FOOTPRINT_MAX,
+  GRID_BUILDING_ROTATION,
+} from './map-config';
+import { sizeTierFromNoteSize } from './note-size';
 import { pickBuildingModel } from './pick-building-model';
 import { rngFor, rangeFrom } from './random';
 import type { ContinentData, NoteData } from './types';
@@ -84,9 +95,17 @@ export interface BuildingPlacement {
   note: NoteData;
   /** 平面上 (x, z) 位置；y 高度由 height 决定 */
   position: [number, number, number];
-  /** 网格列、行索引 */
+  /** 占地锚点格（1×1 为格心；2×2 为左上角） */
   gridCol: number;
   gridRow: number;
+  /** 1 = 单格，2 = 2×2 地块 */
+  gridSpan: 1 | 2;
+  /** 占用的所有格 */
+  gridCells: GridCell[];
+  /** 体量档 */
+  sizeTier: SizeTier;
+  /** 目标水平占地（世界单位），用于 GLB 缩放 */
+  footprintExtent: number;
   /** 均匀缩放 [s, s, s]（保持模型原始比例） */
   scale: [number, number, number];
   /** 颜色（HSL hue） */
@@ -99,16 +118,89 @@ export interface BuildingPlacement {
   modelId: string;
 }
 
+const TIER_PLACE_ORDER: Record<SizeTier, number> = {
+  large: 0,
+  medium: 1,
+  small: 2,
+};
+
+function tierForNote(note: NoteData, modelId: string): SizeTier {
+  const def = getBuilding(modelId);
+  return def?.sizeTier ?? sizeTierFromNoteSize(note.size);
+}
+
+function gridSpanForTier(tier: SizeTier): 1 | 2 {
+  return tier === 'small' ? 1 : 2;
+}
+
+/** 按体量档计算建筑水平占地，中型不超过 2 格面积。 */
+export function footprintExtentForTier(
+  tier: SizeTier,
+  rng: () => number,
+): number {
+  switch (tier) {
+    case 'small':
+      return rangeFrom(
+        rng,
+        BUILDING_SMALL_FOOTPRINT_MAX * 0.82,
+        BUILDING_SMALL_FOOTPRINT_MAX,
+      );
+    case 'medium':
+      return rangeFrom(
+        rng,
+        BUILDING_MEDIUM_FOOTPRINT_MAX * 0.85,
+        BUILDING_MEDIUM_FOOTPRINT_MAX,
+      );
+    case 'large':
+      return rangeFrom(
+        rng,
+        BUILDING_LARGE_FOOTPRINT_MAX * 0.88,
+        BUILDING_LARGE_FOOTPRINT_MAX,
+      );
+  }
+}
+
 /** Approximate horizontal radius from building center to footprint edge. */
 export function buildingRadius(building: BuildingPlacement): number {
-  const def = getBuilding(building.modelId);
-  const footprint = (def?.footprint ?? 1) * BUILDING_FOOTPRINT_SCALE;
-  return footprint * building.scale[0] * 0.55;
+  return building.footprintExtent * 0.5;
+}
+
+function blockIsFree(
+  anchor: GridCell,
+  span: 1 | 2,
+  taken: Set<string>,
+): boolean {
+  const cells = buildingGridCells(anchor.col, anchor.row, span);
+  return cells.every((c) => !taken.has(cellKey(c.col, c.row)));
+}
+
+function markBlock(
+  anchor: GridCell,
+  span: 1 | 2,
+  taken: Set<string>,
+): void {
+  for (const c of buildingGridCells(anchor.col, anchor.row, span)) {
+    taken.add(cellKey(c.col, c.row));
+  }
+}
+
+function nextFreeAnchor(
+  anchors: GridCell[],
+  startIdx: number,
+  span: 1 | 2,
+  taken: Set<string>,
+): { anchor: GridCell; nextIdx: number } | null {
+  for (let i = startIdx; i < anchors.length; i++) {
+    if (blockIsFree(anchors[i], span, taken)) {
+      return { anchor: anchors[i], nextIdx: i + 1 };
+    }
+  }
+  return null;
 }
 
 /**
- * 把一个大陆的所有 note 放到网格上，一格一栋，统一朝西。
- * 用基于 continentId 的种子洗牌格位，保证位置稳定。
+ * 把一个大陆的所有 note 放到网格上：小型 1 格，中型/大型 2×2 地块。
+ * 中型建筑实际占地不超过 2 格面积；统一朝西。
  */
 export function placeBuildings(
   notes: NoteData[],
@@ -116,41 +208,74 @@ export function placeBuildings(
 ): BuildingPlacement[] {
   const continentId = notes[0]?.continentId ?? 'unknown';
   const cellRng = rngFor(`building-cells:${continentId}`);
-  const primary = buildableCells();
-  const overflow = overflowCells();
-  shuffleCells(primary, cellRng);
-  shuffleCells(overflow, cellRng);
-  const cells = [...primary, ...overflow];
 
+  const singleAnchors = [...buildableCells(), ...overflowCells()];
+  const blockAnchors = [
+    ...buildable2x2Anchors(),
+    ...overflow2x2Anchors(),
+  ];
+  shuffleCells(singleAnchors, cellRng);
+  shuffleCells(blockAnchors, cellRng);
+
+  const meta = notes.map((note) => {
+    const modelId = pickBuildingModel(note);
+    return {
+      note,
+      modelId,
+      sizeTier: tierForNote(note, modelId),
+    };
+  });
+
+  const sorted = [...meta].sort((a, b) => {
+    const d = TIER_PLACE_ORDER[a.sizeTier] - TIER_PLACE_ORDER[b.sizeTier];
+    if (d !== 0) return d;
+    return a.note.id.localeCompare(b.note.id);
+  });
+
+  const taken = new Set<string>();
   const placed: BuildingPlacement[] = [];
+  let singleIdx = 0;
+  let blockIdx = 0;
 
-  for (let i = 0; i < notes.length; i++) {
-    const note = notes[i];
+  for (const { note, modelId, sizeTier } of sorted) {
     const rng = rngFor(`building:${note.id}`);
+    const gridSpan = gridSpanForTier(sizeTier);
 
-    if (i >= cells.length) {
+    const slot =
+      gridSpan === 1
+        ? nextFreeAnchor(singleAnchors, singleIdx, 1, taken)
+        : nextFreeAnchor(blockAnchors, blockIdx, 2, taken);
+
+    if (!slot) {
       console.warn(
-        `[placeBuildings] ${continentId}: more notes (${notes.length}) than grid cells (${cells.length}); skipping "${note.id}"`,
+        `[placeBuildings] ${continentId}: no free ${gridSpan === 1 ? '1×1' : '2×2'} slot for "${note.id}" (${sizeTier})`,
       );
       continue;
     }
 
-    const { col, row } = cells[i];
-    const [x, z] = cellCenter(col, row);
+    if (gridSpan === 1) singleIdx = slot.nextIdx;
+    else blockIdx = slot.nextIdx;
 
-    const k = Math.log10(note.size + 50) / 4;
-    const s = 0.85 + k * 0.55 + rng() * 0.2;
+    const { col, row } = slot.anchor;
+    markBlock(slot.anchor, gridSpan, taken);
+
+    const gridCells = buildingGridCells(col, row, gridSpan);
+    const [x, z] = buildingWorldCenter(col, row, gridSpan);
 
     placed.push({
       note,
       position: [x, 0, z],
       gridCol: col,
       gridRow: row,
-      scale: [s, s, s],
+      gridSpan,
+      gridCells,
+      sizeTier,
+      footprintExtent: footprintExtentForTier(sizeTier, rng),
+      scale: [1, 1, 1],
       hue: rng() * 360,
       roof: rng(),
       rotation: GRID_BUILDING_ROTATION,
-      modelId: pickBuildingModel(note),
+      modelId,
     });
   }
 

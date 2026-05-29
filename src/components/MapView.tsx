@@ -7,7 +7,6 @@ import type { ContinentData, NoteData } from '../lib/types';
 import { gridLineSegments } from '../lib/grid';
 import { placeBuildings, type BuildingPlacement } from '../lib/layout';
 import {
-  BUILDING_FOOTPRINT_SCALE,
   GRID_BUILDING_ROTATION,
   MAP_CAMERA_ZOOM,
   MAP_SIZE,
@@ -241,7 +240,7 @@ function Building({
 
   const emphasize = hover || isHovered || isSelected;
   const buildingDef = getBuilding(placement.modelId);
-  const labelLift = placement.scale[0] * 0.55 + 0.35;
+  const labelLift = placement.footprintExtent * 0.4 + 0.35;
 
   if (!buildingDef) return null;
 
@@ -252,7 +251,7 @@ function Building({
     >
       <GlTFModel
           url={buildingDef.url}
-          footprint={buildingDef.footprint * BUILDING_FOOTPRINT_SCALE}
+          footprint={placement.footprintExtent}
           scale={placement.scale}
           uniformScale
           yOffset={buildingDef.yOffset}

@@ -107,6 +107,80 @@ export function overflowCells(): GridCell[] {
   return allCells().filter((c) => !isBuildableCell(c.col, c.row));
 }
 
+export function block2x2Cells(anchorCol: number, anchorRow: number): GridCell[] {
+  return [
+    { col: anchorCol, row: anchorRow },
+    { col: anchorCol + 1, row: anchorRow },
+    { col: anchorCol, row: anchorRow + 1 },
+    { col: anchorCol + 1, row: anchorRow + 1 },
+  ];
+}
+
+export function is2x2InBounds(anchorCol: number, anchorRow: number): boolean {
+  return (
+    isInBounds(anchorCol, anchorRow) &&
+    isInBounds(anchorCol + 1, anchorRow + 1)
+  );
+}
+
+export function is2x2Buildable(anchorCol: number, anchorRow: number): boolean {
+  return block2x2Cells(anchorCol, anchorRow).every((c) =>
+    isBuildableCell(c.col, c.row),
+  );
+}
+
+/** Center of a 2×2 block (world XZ). */
+export function block2x2Center(
+  anchorCol: number,
+  anchorRow: number,
+): [number, number] {
+  const [x0, z0] = cellCenter(anchorCol, anchorRow);
+  const [x1, z1] = cellCenter(anchorCol + 1, anchorRow + 1);
+  return [(x0 + x1) / 2, (z0 + z1) / 2];
+}
+
+export function buildingGridCells(
+  anchorCol: number,
+  anchorRow: number,
+  span: 1 | 2,
+): GridCell[] {
+  return span === 1
+    ? [{ col: anchorCol, row: anchorRow }]
+    : block2x2Cells(anchorCol, anchorRow);
+}
+
+export function buildingWorldCenter(
+  anchorCol: number,
+  anchorRow: number,
+  span: 1 | 2,
+): [number, number] {
+  return span === 1
+    ? cellCenter(anchorCol, anchorRow)
+    : block2x2Center(anchorCol, anchorRow);
+}
+
+export function all2x2Anchors(): GridCell[] {
+  const anchors: GridCell[] = [];
+  for (let row = 0; row < GRID_ROWS - 1; row++) {
+    for (let col = 0; col < GRID_COLS - 1; col++) {
+      anchors.push({ col, row });
+    }
+  }
+  return anchors;
+}
+
+export function buildable2x2Anchors(): GridCell[] {
+  return all2x2Anchors().filter((a) => is2x2Buildable(a.col, a.row));
+}
+
+export function overflow2x2Anchors(): GridCell[] {
+  return all2x2Anchors().filter((a) => !is2x2Buildable(a.col, a.row));
+}
+
+export function cellKey(col: number, row: number): string {
+  return `${col},${row}`;
+}
+
 export function shuffleCells<T>(items: T[], rng: () => number): void {
   for (let i = items.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -121,23 +195,29 @@ export class GridOccupancy {
   private plantCounts = new Map<string, number>();
 
   private key(col: number, row: number): string {
-    return `${col},${row}`;
+    return cellKey(col, row);
+  }
+
+  markBuildingCells(cells: GridCell[], noteId: string): void {
+    for (const { col, row } of cells) {
+      this.setBuilding(col, row, noteId);
+    }
   }
 
   setBuilding(col: number, row: number, noteId: string): void {
-    this.buildings.set(this.key(col, row), noteId);
+    this.buildings.set(cellKey(col, row), noteId);
   }
 
   hasBuilding(col: number, row: number): boolean {
-    return this.buildings.has(this.key(col, row));
+    return this.buildings.has(cellKey(col, row));
   }
 
   setForest(col: number, row: number, forestId: number): void {
-    this.forests.set(this.key(col, row), forestId);
+    this.forests.set(cellKey(col, row), forestId);
   }
 
   hasForest(col: number, row: number): boolean {
-    return this.forests.has(this.key(col, row));
+    return this.forests.has(cellKey(col, row));
   }
 
   getBuildingCells(): GridCell[] {
