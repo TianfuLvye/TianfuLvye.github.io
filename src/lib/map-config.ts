@@ -33,6 +33,20 @@ export const GRID_FOREST_COUNT = 3;
 /** Min Chebyshev distance between forest patch seed cells. */
 export const GRID_FOREST_MIN_SPACING = 2;
 
+/** Trees per forest cell (dedicated slots, not shared with ground decor). */
+export const GRID_FOREST_TREES_MIN = 2;
+export const GRID_FOREST_TREES_MAX = 4;
+
+/** Ground decor per forest cell (grass, rocks, flowers, etc.). */
+export const GRID_FOREST_GROUND_MIN = 2;
+export const GRID_FOREST_GROUND_MAX = 8;
+
+/** Min distance from a tree trunk center for ground decor (world units). */
+export const GRID_FOREST_GROUND_TRUNK_CLEARANCE = GRID_CELL_SIZE * 0.12;
+
+/** Min distance between tree centers within the same forest cell. */
+export const GRID_FOREST_TREE_MIN_SEPARATION = GRID_CELL_SIZE * 0.32;
+
 /** Default min distance from any building for wild scatter. */
 export const DECOR_WILD_MIN_BUILDING_DIST = 1.8;
 

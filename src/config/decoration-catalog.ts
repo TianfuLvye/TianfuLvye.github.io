@@ -9,7 +9,7 @@ export type DecorFitExtent = 'xz' | 'y' | 'max';
 
 export type DecorZone = 'building' | 'wild' | 'cluster-only';
 
-export type DecorClusterKind = 'tree' | 'flower';
+export type DecorClusterKind = 'forest' | 'flower';
 
 export interface DecorationDef {
   id: string;
@@ -35,9 +35,9 @@ export interface DecorationDef {
   clusterKind?: DecorClusterKind;
 }
 
-const SPLIT_TREE_BASE = '/models/decorations/split_tree_assets';
+const FOREST_ASSETS_BASE = '/models/decorations/forest_assets';
 
-const SPLIT_TREE_FILES = [
+const FOREST_TREE_FILES = [
   'tree_01_mesh1114869579.glb',
   'tree_02_mesh373735999.glb',
   'tree_04_mesh1932686607.glb',
@@ -53,21 +53,124 @@ const SPLIT_TREE_FILES = [
   'tree_18_mesh1610579876.glb',
 ] as const;
 
-function splitTreeDecorations(): Record<string, DecorationDef> {
+function forestDecorations(): Record<string, DecorationDef> {
   const entries: Record<string, DecorationDef> = {};
-  for (const file of SPLIT_TREE_FILES) {
+
+  for (const file of FOREST_TREE_FILES) {
     const num = file.match(/tree_(\d+)_/)?.[1] ?? file;
-    const id = `split-tree-${num}`;
+    const id = `forest-tree-${num}`;
     entries[id] = {
       id,
-      url: `${SPLIT_TREE_BASE}/${file}`,
-      weight: 1,
+      url: `${FOREST_ASSETS_BASE}/${file}`,
+      weight: 6,
       zone: 'cluster-only',
-      clusterKind: 'tree',
+      clusterKind: 'forest',
       footprint: 0.38,
       fitExtent: 'xz',
     };
   }
+
+  entries['forest-grass'] = {
+    id: 'forest-grass',
+    url: `${FOREST_ASSETS_BASE}/grass.glb`,
+    weight: 12,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.1,
+    fitExtent: 'y',
+    scaleMax: 0.1,
+  };
+  entries['forest-tuft-of-grass'] = {
+    id: 'forest-tuft-of-grass',
+    url: `${FOREST_ASSETS_BASE}/Tuft of Grass.glb`,
+    weight: 8,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.4,
+    fitExtent: 'y',
+    scaleMax: 1.2,
+  };
+  entries['forest-grass-yellowing'] = {
+    id: 'forest-grass-yellowing',
+    url: `${FOREST_ASSETS_BASE}/grass yellowing.glb`,
+    weight: 2,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.2,
+    fitExtent: 'y',
+    scaleMax: 0.3,
+  };
+  entries['forest-rocks'] = {
+    id: 'forest-rocks',
+    url: `${FOREST_ASSETS_BASE}/rocks.glb`,
+    weight: 3,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.24,
+    fitExtent: 'y',
+    scaleMax: 0.30,
+  };
+  entries['forest-split-rocks'] = {
+    id: 'forest-split-rocks',
+    url: `${FOREST_ASSETS_BASE}/split rocks.glb`,
+    weight: 1,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.06,
+    fitExtent: 'y',
+    scaleMax: 0.12,
+  };
+  entries['forest-stone-1'] = {
+    id: 'forest-stone-1',
+    url: `${FOREST_ASSETS_BASE}/stone1.glb`,
+    weight: 3,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.16,
+    fitExtent: 'y',
+    scaleMax: 0.32,
+  };
+  entries['forest-stone-2'] = {
+    id: 'forest-stone-2',
+    url: `${FOREST_ASSETS_BASE}/stone2.glb`,
+    weight: 3,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.16,
+    fitExtent: 'y',
+    scaleMax: 0.32,
+  };
+  entries['forest-flower'] = {
+    id: 'forest-flower',
+    url: `${FOREST_ASSETS_BASE}/Flower.glb`,
+    weight: 4,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.09,
+    fitExtent: 'y',
+    scaleMax: 0.16,
+  };
+  entries['forest-tulip1'] = {
+    id: 'forest-tulip1',
+    url: `${FOREST_ASSETS_BASE}/Tulip1.glb`,
+    weight: 2,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.5,
+    fitExtent: 'xz',
+    scaleMax: 0.65,
+  };
+  entries['forest-tulip2'] = {
+    id: 'forest-tulip2',
+    url: `${FOREST_ASSETS_BASE}/Tulip2.glb`,
+    weight: 2,
+    zone: 'cluster-only',
+    clusterKind: 'forest',
+    footprint: 0.08,
+    fitExtent: 'xz',
+    scaleMax: 0.1,
+  };
+
   return entries;
 }
 
@@ -231,7 +334,7 @@ export const DECORATIONS: Record<string, DecorationDef> = {
     zone: 'wild',
     // enabled: false,
   },
-  ...splitTreeDecorations(),
+  ...forestDecorations(),
 };
 
 export type DecorationId = keyof typeof DECORATIONS;

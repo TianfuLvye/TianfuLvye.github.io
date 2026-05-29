@@ -39,3 +39,5 @@ Potted plant by scaranto ([https://poly.pizza/m/auhzQHajHd](https://poly.pizza/m
 Tulip by Jarlan Perez [CC-BY] ([https://creativecommons.org/licenses/by/3.0/](https://creativecommons.org/licenses/by/3.0/)) via Poly Pizza ([https://poly.pizza/m/9qh2uoNIPZW](https://poly.pizza/m/9qh2uoNIPZW))
 
 Tulip by jeremy [CC-BY] ([https://creativecommons.org/licenses/by/3.0/](https://creativecommons.org/licenses/by/3.0/)) via Poly Pizza ([https://poly.pizza/m/aho9NdFUBFu](https://poly.pizza/m/aho9NdFUBFu))
+
+grass yellowing by Steve B [CC-BY] ([https://creativecommons.org/licenses/by/3.0/](https://creativecommons.org/licenses/by/3.0/)) via Poly Pizza ([https://poly.pizza/m/eFUpFgjCf0p](https://poly.pizza/m/eFUpFgjCf0p))
