@@ -114,3 +114,6 @@ export const ROAD_TILE_FOOTPRINT = GRID_CELL_SIZE;
 
 /** Vertical offset after grounding road tiles on Y. */
 export const ROAD_TILE_Y_OFFSET = 0.04;
+
+/** Clockwise 90° correction applied to all road GLB tiles. */
+export const ROAD_TILE_DEFAULT_ROTATION = -Math.PI / 2;

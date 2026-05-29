@@ -1,4 +1,4 @@
-import { ROAD_TILE_FOOTPRINT } from '../lib/map-config';
+import { ROAD_TILE_DEFAULT_ROTATION, ROAD_TILE_FOOTPRINT } from '../lib/map-config';
 
 export type RoadTileKind = 'straight' | 'bend' | 'tJunction' | 'cross' | 'end';
 
@@ -18,35 +18,35 @@ export const ROAD_TILES: Record<RoadTileKind, RoadTileDef> = {
     kind: 'straight',
     url: '/models/road_components/road_side.glb',
     footprint: ROAD_TILE_FOOTPRINT,
-    defaultRotation: 0,
+    defaultRotation: ROAD_TILE_DEFAULT_ROTATION,
   },
   bend: {
     id: 'road_bend',
     kind: 'bend',
     url: '/models/road_components/road_bend.glb',
     footprint: ROAD_TILE_FOOTPRINT,
-    defaultRotation: 0,
+    defaultRotation: ROAD_TILE_DEFAULT_ROTATION,
   },
   tJunction: {
     id: 'road_intersection',
     kind: 'tJunction',
     url: '/models/road_components/road_intersection.glb',
     footprint: ROAD_TILE_FOOTPRINT,
-    defaultRotation: 0,
+    defaultRotation: ROAD_TILE_DEFAULT_ROTATION,
   },
   cross: {
     id: 'road_crossroad',
     kind: 'cross',
     url: '/models/road_components/road_crossroad.glb',
     footprint: ROAD_TILE_FOOTPRINT,
-    defaultRotation: 0,
+    defaultRotation: ROAD_TILE_DEFAULT_ROTATION,
   },
   end: {
     id: 'road_end',
     kind: 'end',
     url: '/models/road_components/road_end.glb',
     footprint: ROAD_TILE_FOOTPRINT,
-    defaultRotation: 0,
+    defaultRotation: ROAD_TILE_DEFAULT_ROTATION,
   },
 };
 
