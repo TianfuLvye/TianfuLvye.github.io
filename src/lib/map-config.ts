@@ -22,20 +22,8 @@ export const DECOR_WILD_MIN_BUILDING_DIST = 1.8;
 /** Min distance from buildings for large wild props (oak, rock-large). */
 export const DECOR_LARGE_MIN_BUILDING_DIST = 3.2;
 
-/** Per-building probability of generating a fence ring. */
-export const DECOR_FENCE_BUILDING_CHANCE = 0.35;
-
 /** Per-building probability of generating flower pots. */
 export const DECOR_POT_BUILDING_CHANCE = 0.6;
-
-/** Spacing between fence segment placements (world units). */
-export const DECOR_FENCE_SEGMENT_SPACING = 0.45;
-
-/** Outward offset from building edge to fence path. */
-export const DECOR_FENCE_INSET = 0.35;
-
-/** Half length of one fence segment along its tangent (world units). */
-export const DECOR_FENCE_HALF_LENGTH = 0.28;
 
 /** Tree grove count baseline at MAP_SIZE = 18. */
 export const DECOR_TREE_GROVE_DENSITY = 3;

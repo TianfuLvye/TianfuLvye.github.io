@@ -5,13 +5,11 @@ import {
   pickFromPool,
   type DecorationDef,
 } from '../config/decoration-catalog';
-import { layoutFenceAroundBuilding } from './decoration-fence';
 import { isNearBridgeCorridor } from './plank-bridge';
 import type { BuildingPlacement } from './layout';
 import {
   BUILDING_FOOTPRINT_SCALE,
   DECOR_CLUSTER_MIN_SPACING,
-  DECOR_FENCE_BUILDING_CHANCE,
   DECOR_FLOWER_PATCH_DENSITY,
   DECOR_TREE_GROVE_DENSITY,
   DECOR_WILD_MIN_BUILDING_DIST,
@@ -127,7 +125,7 @@ function placeBuildingAdjacent(
   bridgeCorridor: Array<[number, number]>,
   out: DecorationPlacement[],
 ) {
-  const potPool = decorationsByZone('building').filter((d) => d.id !== 'fence');
+  const potPool = decorationsByZone('building');
 
   for (const building of buildings) {
     const rng = rngFor(`decor:${continentId}:${building.note.id}`);
@@ -159,17 +157,6 @@ function placeBuildingAdjacent(
           break;
         }
       }
-    }
-
-    if (rng() < DECOR_FENCE_BUILDING_CHANCE) {
-      const fenceItems = layoutFenceAroundBuilding(
-        bx,
-        bz,
-        building.rotation,
-        radius,
-        rng,
-      );
-      out.push(...fenceItems);
     }
   }
 }

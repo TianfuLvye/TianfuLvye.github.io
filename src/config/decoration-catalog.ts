@@ -1,5 +1,4 @@
 import {
-  DECOR_FENCE_BUILDING_CHANCE,
   DECOR_LARGE_MIN_BUILDING_DIST,
   DECOR_POT_BUILDING_CHANCE,
   DECOR_WILD_MIN_BUILDING_DIST,
@@ -222,15 +221,6 @@ export const DECORATIONS: Record<string, DecorationDef> = {
     buildingChance: DECOR_POT_BUILDING_CHANCE,
     maxBuildingDist: 1.6,
     perBuildingCount: [0, 1],
-  },
-  fence: {
-    id: 'fence',
-    url: '/models/decorations/Fence Fortified.glb',
-    weight: 0,
-    zone: 'building',
-    footprint: 0.28,
-    fitExtent: 'xz',
-    buildingChance: DECOR_FENCE_BUILDING_CHANCE,
   },
   crops: {
     id: 'crops',
