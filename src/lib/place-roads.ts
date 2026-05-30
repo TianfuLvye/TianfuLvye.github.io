@@ -49,6 +49,30 @@ function buildingCellSet(buildings: BuildingPlacement[]): Set<string> {
   return set;
 }
 
+/** Cells the trunk may not enter (footprints, door tiles, and flank cells beside doors). */
+function trunkWalkBlockedCells(
+  cfg: ContinentMapConfig,
+  buildings: BuildingPlacement[],
+  buildingCells: Set<string>,
+): Set<string> {
+  const blocked = new Set(buildingCells);
+
+  for (const building of buildings) {
+    for (const { door, approach } of buildingDoorApproaches(cfg, building)) {
+      blocked.add(cellKey(door.col, door.row));
+
+      for (const n of neighbors4(cfg, door.col, door.row)) {
+        const nk = cellKey(n.col, n.row);
+        if (buildingCells.has(nk)) continue;
+        if (n.col === approach.col && n.row === approach.row) continue;
+        blocked.add(nk);
+      }
+    }
+  }
+
+  return blocked;
+}
+
 function manhattanPath(
   cfg: ContinentMapConfig,
   a: GridCell,
@@ -70,12 +94,13 @@ function fallbackTrunkPath(
   source: BuildingPlacement,
   target: BuildingPlacement,
   buildingCells: Set<string>,
+  walkBlocked: Set<string>,
 ): TrunkPathResult | null {
   const sourceDoors = buildingDoorApproaches(cfg, source).filter(
-    ({ approach }) => !buildingCells.has(cellKey(approach.col, approach.row)),
+    ({ approach }) => !walkBlocked.has(cellKey(approach.col, approach.row)),
   );
   const targetDoors = buildingDoorApproaches(cfg, target).filter(
-    ({ approach }) => !buildingCells.has(cellKey(approach.col, approach.row)),
+    ({ approach }) => !walkBlocked.has(cellKey(approach.col, approach.row)),
   );
   if (sourceDoors.length === 0 || targetDoors.length === 0) return null;
 
@@ -100,7 +125,7 @@ function fallbackTrunkPath(
     cfg,
     bestSource.approach,
     bestTarget.approach,
-  ).filter((c) => !buildingCells.has(cellKey(c.col, c.row)));
+  ).filter((c) => !walkBlocked.has(cellKey(c.col, c.row)));
 
   if (trunkCells.length === 0) return null;
 
@@ -118,12 +143,13 @@ function findTrunkPath(
   buildings: BuildingPlacement[],
 ): TrunkPathResult | null {
   const buildingCells = buildingCellSet(buildings);
+  const walkBlocked = trunkWalkBlockedCells(cfg, buildings, buildingCells);
   const sourceDoors = buildingDoorApproaches(cfg, source).filter(
-    ({ approach }) => !buildingCells.has(cellKey(approach.col, approach.row)),
+    ({ approach }) => !walkBlocked.has(cellKey(approach.col, approach.row)),
   );
   const targetByKey = new Map<string, DoorDirection>();
   for (const { dir, approach } of buildingDoorApproaches(cfg, target)) {
-    if (buildingCells.has(cellKey(approach.col, approach.row))) continue;
+    if (walkBlocked.has(cellKey(approach.col, approach.row))) continue;
     targetByKey.set(cellKey(approach.col, approach.row), dir);
   }
 
@@ -162,7 +188,7 @@ function findTrunkPath(
     for (const n of neighbors4(cfg, cur.col, cur.row)) {
       const nk = cellKey(n.col, n.row);
       if (visited.has(nk)) continue;
-      if (buildingCells.has(nk)) continue;
+      if (walkBlocked.has(nk)) continue;
       if (!isInBounds(cfg, n.col, n.row)) continue;
       if (!prev.has(nk)) {
         prev.set(nk, ck);
@@ -172,7 +198,7 @@ function findTrunkPath(
   }
 
   if (!foundTarget || !foundSourceDir || !foundTargetDir) {
-    return fallbackTrunkPath(cfg, source, target, buildingCells);
+    return fallbackTrunkPath(cfg, source, target, buildingCells, walkBlocked);
   }
 
   const trunkCells: GridCell[] = [];

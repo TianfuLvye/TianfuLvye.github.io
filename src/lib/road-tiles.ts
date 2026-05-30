@@ -106,15 +106,6 @@ function pickTileFromMask(mask: number): {
   return { kind: 'cross', rotationY: 0 };
 }
 
-function neighborCount(mask: number): number {
-  return (
-    (mask & DIR_N ? 1 : 0) +
-    (mask & DIR_E ? 1 : 0) +
-    (mask & DIR_S ? 1 : 0) +
-    (mask & DIR_W ? 1 : 0)
-  );
-}
-
 /** One road GLB per fine grid cell on active tag paths. */
 export function mergeActiveRoadTiles(
   segments: RoadSegment[],
@@ -151,10 +142,7 @@ export function mergeActiveRoadTiles(
     if (connectivityMask === 0) continue;
 
     const doorFacing = doorFacingByKey.get(key);
-    if (
-      doorFacing !== undefined &&
-      neighborCount(connectivityMask) === 1
-    ) {
+    if (doorFacing !== undefined) {
       tiles.push({
         col,
         row,
