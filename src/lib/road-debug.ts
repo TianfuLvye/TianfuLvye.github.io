@@ -6,36 +6,34 @@ export const DIR_E = 2;
 export const DIR_S = 4;
 export const DIR_W = 8;
 
+export interface CardinalDeg {
+  n: number;
+  e: number;
+  s: number;
+  w: number;
+}
+
 export interface RoadDebugSettings {
   footprintScale: number;
   yOffset: number;
   /** Applied to every tile after tile-specific rotation (degrees). */
   defaultRotationDeg: number;
-  /** Extra rotation per tile kind (degrees). */
-  kindOffsetDeg: Record<RoadTileKind, number>;
-  straightDeg: { ew: number; ns: number };
+  straightDeg: CardinalDeg;
   bendDeg: { ne: number; es: number; sw: number; wn: number };
-  endDeg: { n: number; e: number; s: number; w: number };
+  endDeg: CardinalDeg;
   tJunctionDeg: { esw: number; nsw: number; new: number; nes: number };
-  crossDeg: number;
+  crossDeg: CardinalDeg;
 }
 
 export const DEFAULT_ROAD_DEBUG: RoadDebugSettings = {
   footprintScale: 1,
   yOffset: 0.02,
   defaultRotationDeg: -90,
-  kindOffsetDeg: {
-    straight: 0,
-    bend: 0,
-    tJunction: 90,
-    cross: 0,
-    end: 180,
-  },
-  straightDeg: { ew: 90, ns: 0 },
+  straightDeg: { n: 0, e: 90, s: 0, w: 90 },
   bendDeg: { ne: 270, es: 180, sw: 90, wn: 0 },
-  endDeg: { n: 0, e: 90, s: 180, w: -90 },
-  tJunctionDeg: { esw: 0, nsw: -90, new: 180, nes: 90 },
-  crossDeg: 0,
+  endDeg: { n: 180, e: 270, s: 0, w: 90 },
+  tJunctionDeg: { esw: 90, nsw: 0, new: 270, nes: 180 },
+  crossDeg: { n: 0, e: 0, s: 0, w: 0 },
 };
 
 function degToRad(d: number): number {
@@ -63,9 +61,7 @@ export function resolveRoadTileRotationY(
   switch (kind) {
     case 'straight':
       tileDeg =
-        mask === (DIR_E | DIR_W)
-          ? debug.straightDeg.ew
-          : debug.straightDeg.ns;
+        mask === (DIR_E | DIR_W) ? debug.straightDeg.e : debug.straightDeg.n;
       break;
     case 'bend':
       if (mask === (DIR_N | DIR_E)) tileDeg = debug.bendDeg.ne;
@@ -91,13 +87,9 @@ export function resolveRoadTileRotationY(
       }
       break;
     case 'cross':
-      tileDeg = debug.crossDeg;
+      tileDeg = debug.crossDeg.n;
       break;
   }
 
-  return (
-    degToRad(tileDeg) +
-    degToRad(debug.defaultRotationDeg) +
-    degToRad(debug.kindOffsetDeg[kind])
-  );
+  return degToRad(tileDeg) + degToRad(debug.defaultRotationDeg);
 }
