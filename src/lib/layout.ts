@@ -1,4 +1,9 @@
-import { getBuilding, type SizeTier } from '../config/building-catalog';
+import {
+  doorsForBuildingId,
+  getBuilding,
+  type DoorDirection,
+  type SizeTier,
+} from '../config/building-catalog';
 import {
   blockCellsWithMargin,
   buildableBlockAnchors,
@@ -119,6 +124,8 @@ export interface BuildingPlacement {
   rotation: number;
   /** GLB 建筑模型 id */
   modelId: string;
+  /** Grid sides where roads may attach (from building catalog). */
+  doors: DoorDirection[];
 }
 
 const TIER_PLACE_ORDER: Record<SizeTier, number> = {
@@ -239,22 +246,34 @@ export function gridPositionForBuilding(
   return [building.gridCol + half, building.gridRow + half] as const;
 }
 
-/** Road attachment cells: one grid cell outside each edge midpoint (N/E/S/W). */
-export function buildingRoadConnectionCells(
-  cfg: ContinentMapConfig,
+function doorConnectionCell(
   building: BuildingPlacement,
-): GridCell[] {
+  dir: DoorDirection,
+): GridCell {
   const span = building.gridSpan;
   const half = (span - 1) / 2;
   const centerCol = building.gridCol + half;
   const centerRow = building.gridRow + half;
-  const candidates: GridCell[] = [
-    { col: centerCol, row: building.gridRow - 1 },
-    { col: building.gridCol + span, row: centerRow },
-    { col: centerCol, row: building.gridRow + span },
-    { col: building.gridCol - 1, row: centerRow },
-  ];
-  return candidates.filter((c) => isInBounds(cfg, c.col, c.row));
+  switch (dir) {
+    case 'n':
+      return { col: centerCol, row: building.gridRow - 1 };
+    case 'e':
+      return { col: building.gridCol + span, row: centerRow };
+    case 's':
+      return { col: centerCol, row: building.gridRow + span };
+    case 'w':
+      return { col: building.gridCol - 1, row: centerRow };
+  }
+}
+
+/** Road attachment cells outside door-facing edge midpoints only. */
+export function buildingRoadConnectionCells(
+  cfg: ContinentMapConfig,
+  building: BuildingPlacement,
+): GridCell[] {
+  return building.doors
+    .map((dir) => doorConnectionCell(building, dir))
+    .filter((c) => isInBounds(cfg, c.col, c.row));
 }
 
 /**
@@ -337,6 +356,7 @@ export function placeBuildings(
       roof: rng(),
       rotation: GRID_BUILDING_ROTATION,
       modelId,
+      doors: doorsForBuildingId(modelId),
     });
   }
 

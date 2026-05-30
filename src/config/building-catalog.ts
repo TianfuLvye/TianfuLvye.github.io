@@ -1,13 +1,30 @@
 export type SizeTier = 'small' | 'medium' | 'large';
 
+/** Grid-facing side where a building entrance connects to roads. */
+export type DoorDirection = 'n' | 'e' | 's' | 'w';
+
+export const DEFAULT_DOORS: DoorDirection[] = ['e'];
+export const ALL_DOORS: DoorDirection[] = ['n', 'e', 's', 'w'];
+
 export interface BuildingDef {
   id: string;
   url: string;
   sizeTier: SizeTier;
   footprint: number;
+  /** Road attachment sides; defaults to a single east door. */
+  doors?: DoorDirection[];
   yOffset?: number;
   weight?: number;
   enabled?: boolean;
+}
+
+export function doorsForBuilding(def: BuildingDef | undefined): DoorDirection[] {
+  if (!def?.doors || def.doors.length === 0) return DEFAULT_DOORS;
+  return def.doors;
+}
+
+export function doorsForBuildingId(id: string): DoorDirection[] {
+  return doorsForBuilding(BUILDINGS[id]);
 }
 
 export const BUILDINGS: Record<string, BuildingDef> = {
@@ -66,6 +83,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
     sizeTier: 'medium',
     footprint: 1.0,
     weight: 1,
+    doors: ALL_DOORS,
   },
   'market-stalls-compact': {
     id: 'market-stalls-compact',
@@ -94,6 +112,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
     sizeTier: 'large',
     footprint: 1.1,
     weight: 1,
+    doors: ALL_DOORS,
   },
   'big-temple': {
     id: 'big-temple',
@@ -101,6 +120,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
     sizeTier: 'large',
     footprint: 1.1,
     weight: 1,
+    doors: ALL_DOORS,
   },
   'step-pyramid': {
     id: 'step-pyramid',
@@ -108,6 +128,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
     sizeTier: 'large',
     footprint: 1.0,
     weight: 1,
+    doors: ALL_DOORS,
   },
   'castle-1234': {
     id: 'castle-1234',
