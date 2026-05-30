@@ -112,7 +112,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
           mapConfig.mapSize * 0.5,
         ]}
         near={0.1}
-        far={100}
+        far={mapConfig.mapSize * 4}
       />
 
       <ambientLight intensity={0.7} color="#fff1d6" />
@@ -186,8 +186,8 @@ export default function MapView({ continent, onOpenNote }: Props) {
       <MapControls
         enableRotate={false}
         enableZoom={true}
-        minZoom={20}
-        maxZoom={100}
+        minZoom={Math.round(mapConfig.cameraZoom * 0.25)}
+        maxZoom={Math.round(mapConfig.cameraZoom * 1.5)}
         screenSpacePanning={true}
       />
     </>

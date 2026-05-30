@@ -144,12 +144,13 @@ function randomEllipseZone(
 ): ForestZone {
   const half = buildableHalfExtent(cfg);
   const [cx, cz] = randomEdgeBiasedCenter(rng, half);
+  const s = cfg.sideScale;
   return {
     kind: 'ellipse',
     cx,
     cz,
-    rx: rangeFrom(rng, FOREST_ELLIPSE_RX_MIN, FOREST_ELLIPSE_RX_MAX),
-    rz: rangeFrom(rng, FOREST_ELLIPSE_RZ_MIN, FOREST_ELLIPSE_RZ_MAX),
+    rx: rangeFrom(rng, FOREST_ELLIPSE_RX_MIN, FOREST_ELLIPSE_RX_MAX) * s,
+    rz: rangeFrom(rng, FOREST_ELLIPSE_RZ_MIN, FOREST_ELLIPSE_RZ_MAX) * s,
     rotation: rng() * Math.PI,
   };
 }
@@ -179,7 +180,7 @@ export function selectForestZones(
     }
   }
 
-  for (let i = 0; i < FOREST_ELLIPSE_COUNT; i++) {
+  for (let i = 0; i < Math.max(FOREST_ELLIPSE_COUNT, Math.round(FOREST_ELLIPSE_COUNT * cfg.sideScale)); i++) {
     const zone = randomEllipseZone(cfg, rng);
     const centerCell = worldToCell(cfg, zone.cx, zone.cz);
     if (

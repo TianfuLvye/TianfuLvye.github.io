@@ -99,6 +99,9 @@ export const DECOR_FLOWER_PATCH_DENSITY = 15;
 /** Wild scatter count baseline at MAP_SIZE = 18 (scaled for fine grid area). */
 export const DECOR_WILD_SCATTER_DENSITY = 105;
 
+/** Hard cap on total decoration instances per continent at base map size. */
+export const DECOR_MAX_INSTANCES = 700;
+
 /** Legacy 10×10 grid cell count used before fine-grid expansion. */
 export const LEGACY_GRID_CELLS = 10 * 10;
 
@@ -117,6 +120,10 @@ export interface ContinentMapConfig {
   forestRibbonLength: number;
   forestGroundTrunkClearance: number;
   forestTreeMinSeparation: number;
+  /** (mapSize / MAP_SIZE_BASE)² — decor/forest counts scale with this. */
+  areaScale: number;
+  /** mapSize / MAP_SIZE_BASE — forest ellipse radii scale with this. */
+  sideScale: number;
   footprintMax: {
     small: number;
     medium: number;
@@ -134,6 +141,8 @@ export function continentMapConfig(noteCount: number): ContinentMapConfig {
   const mapSize = MAP_SIZE_BASE * (gridCols / GRID_BASE);
   const cellSize = mapSize / gridCols;
   const gridAreaScale = (gridCols * gridRows) / LEGACY_GRID_CELLS;
+  const sideScale = mapSize / MAP_SIZE_BASE;
+  const areaScale = sideScale * sideScale;
 
   return {
     mapSize,
@@ -146,6 +155,8 @@ export function continentMapConfig(noteCount: number): ContinentMapConfig {
     forestRibbonLength: mapSize * 0.72,
     forestGroundTrunkClearance: (mapSize / 10) * 0.12,
     forestTreeMinSeparation: (mapSize / 10) * 0.32,
+    areaScale,
+    sideScale,
     footprintMax: {
       small: BUILDING_SPAN_SMALL * cellSize * 0.88,
       medium: BUILDING_SPAN_MEDIUM * cellSize * 0.88,
@@ -158,16 +169,15 @@ export function continentMapConfig(noteCount: number): ContinentMapConfig {
 /** Base map config (≤10 notes). */
 export const DEFAULT_MAP_CONFIG = continentMapConfig(0);
 
-/** Scale decor patch counts for map size and finer grid resolution. */
-export function decorDensityScale(
-  mapSize: number,
-  gridAreaScale = GRID_AREA_SCALE,
-): number {
-  return (mapSize / 18) / Math.sqrt(gridAreaScale);
+/** Decor/flower/wild scatter count multiplier vs base map (side length ratio squared). */
+export function decorDensityScale(cfg: ContinentMapConfig): number {
+  return cfg.areaScale;
 }
 
-/** Hard cap on total decoration instances per continent. */
-export const DECOR_MAX_INSTANCES = 700;
+/** Max decoration instances for a continent (scales with map area). */
+export function decorMaxInstances(cfg: ContinentMapConfig): number {
+  return Math.round(DECOR_MAX_INSTANCES * cfg.areaScale);
+}
 
 /** Max horizontal extent for a small building on a 3×3 plot (base size). */
 export const BUILDING_SMALL_FOOTPRINT_MAX =

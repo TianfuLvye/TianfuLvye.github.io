@@ -24,11 +24,11 @@ import {
 import type { BuildingPlacement } from './layout';
 import {
   DECOR_FLOWER_PATCH_DENSITY,
-  DECOR_MAX_INSTANCES,
   DECOR_POT_BUILDING_CHANCE,
   DECOR_WILD_MIN_BUILDING_DIST,
   DECOR_WILD_SCATTER_DENSITY,
   decorDensityScale,
+  decorMaxInstances,
   FOREST_GROUND_DENSITY,
   FOREST_MIN_BUILDING_DIST,
   FOREST_TREE_DENSITY,
@@ -158,9 +158,15 @@ function placeForestZoneDecor(
 
   const area = forestZoneWorldArea(zone);
   const placedPositions: Array<[number, number]> = [];
+  // Ribbon zone area grows linearly with side; multiply by sideScale for quadratic total.
+  const budgetScale =
+    zone.kind === 'ribbon' ? cfg.sideScale : 1;
 
   if (treePool.length > 0) {
-    const treeBudget = Math.max(2, Math.round(area * FOREST_TREE_DENSITY));
+    const treeBudget = Math.max(
+      2,
+      Math.round(area * FOREST_TREE_DENSITY * budgetScale),
+    );
     let treesPlaced = 0;
     let attempts = 0;
     const maxAttempts = treeBudget * 14;
@@ -206,7 +212,10 @@ function placeForestZoneDecor(
 
   if (groundPool.length === 0) return;
 
-  const groundBudget = Math.max(3, Math.round(area * FOREST_GROUND_DENSITY));
+  const groundBudget = Math.max(
+    3,
+    Math.round(area * FOREST_GROUND_DENSITY * budgetScale),
+  );
   let groundPlaced = 0;
   let attempts = 0;
   const maxGroundAttempts = groundBudget * 14;
@@ -377,7 +386,7 @@ export function placeDecorations(input: {
   const rng = rngFor(`decor:${continentId}`);
   const out: DecorationPlacement[] = [];
   const occupancy = initOccupancy(cfg, buildings);
-  const density = decorDensityScale(cfg.mapSize, cfg.gridAreaScale);
+  const density = decorDensityScale(cfg);
   const gridCells = allCells(cfg);
 
   placeBuildingAdjacent(cfg, continentId, buildings, occupancy, out);
@@ -385,8 +394,9 @@ export function placeDecorations(input: {
   placeFlowerPatches(cfg, rng, density, gridCells, occupancy, out);
   placeWildScatter(cfg, rng, density, gridCells, occupancy, out);
 
-  if (out.length > DECOR_MAX_INSTANCES) {
-    return out.slice(0, DECOR_MAX_INSTANCES);
+  const maxInstances = decorMaxInstances(cfg);
+  if (out.length > maxInstances) {
+    return out.slice(0, maxInstances);
   }
   return out;
 }
