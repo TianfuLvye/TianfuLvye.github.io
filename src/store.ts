@@ -21,6 +21,8 @@ interface WorldStore {
   transitioning: boolean;
   /** 是否显示地图网格调试线 */
   showGridDebug: boolean;
+  /** 是否显示公路寻路不可通行格（footprint + door flank） */
+  showRoadWalkBlockedDebug: boolean;
   /** 马路 GLB 调试参数 */
   roadDebug: RoadDebugSettings;
   /** 是否显示马路调试面板 */
@@ -37,6 +39,7 @@ interface WorldStore {
   setSort: (k: SortKey) => void;
   setTransitioning: (t: boolean) => void;
   setShowGridDebug: (v: boolean) => void;
+  setShowRoadWalkBlockedDebug: (v: boolean) => void;
   setRoadDebug: (next: RoadDebugSettings) => void;
   resetRoadDebug: () => void;
   setShowRoadDebugPanel: (v: boolean) => void;
@@ -51,6 +54,7 @@ export const useWorld = create<WorldStore>((set) => ({
   sortKey: 'default',
   transitioning: false,
   showGridDebug: false,
+  showRoadWalkBlockedDebug: false,
   roadDebug: DEFAULT_ROAD_DEBUG,
   showRoadDebugPanel: true,
 
@@ -63,6 +67,7 @@ export const useWorld = create<WorldStore>((set) => ({
       sortKey: 'default',
       focusedContinent: null,
       showGridDebug: false,
+      showRoadWalkBlockedDebug: false,
     }),
   exitToGlobe: () =>
     set({
@@ -72,6 +77,7 @@ export const useWorld = create<WorldStore>((set) => ({
       activeTags: [],
       sortKey: 'default',
       showGridDebug: false,
+      showRoadWalkBlockedDebug: false,
     }),
   focusContinent: (id) => set({ focusedContinent: id }),
   selectNote: (note) => set({ selectedNote: note }),
@@ -87,6 +93,7 @@ export const useWorld = create<WorldStore>((set) => ({
   setSort: (k) => set({ sortKey: k }),
   setTransitioning: (t) => set({ transitioning: t }),
   setShowGridDebug: (v) => set({ showGridDebug: v }),
+  setShowRoadWalkBlockedDebug: (v) => set({ showRoadWalkBlockedDebug: v }),
   setRoadDebug: (next) => set({ roadDebug: next }),
   resetRoadDebug: () => set({ roadDebug: DEFAULT_ROAD_DEBUG }),
   setShowRoadDebugPanel: (v) => set({ showRoadDebugPanel: v }),

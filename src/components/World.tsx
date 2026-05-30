@@ -9,6 +9,7 @@ import DetailsPanel from './DetailsPanel';
 import Sidebar from './Sidebar';
 import GridDebugToggle from './GridDebugToggle';
 import RoadDebugPanel from './RoadDebugPanel';
+import RoadWalkBlockedToggle from './RoadWalkBlockedToggle';
 import HUD from './HUD';
 
 interface Props {
@@ -115,6 +116,7 @@ export default function World({ tree }: Props) {
 
 
       {view.kind === 'map' && currentContinent && <GridDebugToggle />}
+      {view.kind === 'map' && currentContinent && <RoadWalkBlockedToggle />}
       {view.kind === 'map' && currentContinent && <RoadDebugPanel />}
 
       <DetailsPanel

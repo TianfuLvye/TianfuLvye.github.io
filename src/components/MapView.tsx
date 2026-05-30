@@ -18,6 +18,7 @@ import GlTFModel from './GlTFModel';
 import InstancedDecorations from './InstancedDecorations';
 import InstancedRoadTiles from './InstancedRoadTiles';
 import MapModelPreload from './MapModelPreload';
+import RoadWalkBlockedOverlay from './RoadWalkBlockedOverlay';
 
 /**
  * drei Html 在 OrthographicCamera 下用 scale = zoom × distanceFactor。
@@ -62,6 +63,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
   const selectNote = useWorld((s) => s.selectNote);
   const selectedNoteId = useWorld((s) => s.selectedNote?.id ?? null);
   const showGridDebug = useWorld((s) => s.showGridDebug);
+  const showRoadWalkBlockedDebug = useWorld((s) => s.showRoadWalkBlockedDebug);
 
   const tagHighlightIds = useMemo(() => {
     if (activeTags.length === 0) return new Set<string>();
@@ -150,6 +152,10 @@ export default function MapView({ continent, onOpenNote }: Props) {
       </mesh>
 
       {showGridDebug && <GridOverlay cfg={mapConfig} />}
+
+      {showRoadWalkBlockedDebug && (
+        <RoadWalkBlockedOverlay cfg={mapConfig} buildings={buildings} />
+      )}
 
       {/* 一些装饰性的小树 / 灌木 */}
       <Decorations

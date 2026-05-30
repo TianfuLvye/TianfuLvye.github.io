@@ -461,6 +461,33 @@ button {
   border-color: var(--ochre-deep);
 }
 
+.road-walk-blocked-toggle {
+  position: absolute;
+  bottom: 24px;
+  right: 520px;
+  z-index: 20;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  box-shadow: 0 2px 12px rgba(11, 20, 38, 0.12);
+  transition: all 0.15s ease;
+  pointer-events: auto;
+}
+.road-walk-blocked-toggle:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.road-walk-blocked-toggle.is-active {
+  background: #c0392b;
+  color: var(--paper);
+  border-color: #922b21;
+}
+
 .road-debug-panel {
   position: absolute;
   bottom: 64px;
@@ -1029,6 +1056,14 @@ body:has(.note-article) {
   }
   .grid-debug-toggle {
     right: 270px;
+    bottom: 16px;
+  }
+  .road-debug-toggle {
+    right: 350px;
+    bottom: 16px;
+  }
+  .road-walk-blocked-toggle {
+    right: 430px;
     bottom: 16px;
   }
   .details-panel {
