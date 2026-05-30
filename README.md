@@ -14,8 +14,6 @@
 
 字体来自 Google Fonts：Fraunces（display）/ Inter Tight（body）/ JetBrains Mono（meta）。
 
-
-
 ## 开发
 
 ```bash
@@ -38,11 +36,13 @@ npm run preview      # 预览构建
 │   └── models/
 │       ├── ATTRIBUTION.md        # GLB 来源说明
 │       ├── buildings/
-│       └── decorations/
+│       ├── decorations/
+│       └── road_components/      # 马路 GLB 拼块（直/弯/T/十字/端点）
 └── src/
     ├── config/
     │   ├── building-catalog.ts   # 建筑 GLB 注册（体量档、权重、footprint）
-    │   └── decoration-catalog.ts # 装饰 GLB 注册
+    │   ├── decoration-catalog.ts # 装饰 GLB 注册
+    │   └── road-catalog.ts       # 马路拼块 GLB 注册
     ├── content.config.ts         # content collection schema（含可选 building）
     ├── env.d.ts
     ├── content/notes/
@@ -60,11 +60,13 @@ npm run preview      # 预览构建
     │   ├── GlTFModel.tsx         # GLB 加载、归一化缩放、高亮、pick 体积
     │   ├── DecorationModel.tsx
     │   ├── MapModelPreload.tsx   # 按大陆预加载 GLB
-    │   ├── TagBridgePaths.tsx    # tag 木板路 / 彩虹桥 3D
-    │   ├── BridgeTagInfoDock.tsx # 选中桥后底部 tag 信息条
+    │   ├── InstancedRoadTiles.tsx   # tag 马路 GLB 实例化渲染
+    │   ├── InstancedDecorations.tsx # 装饰实例化
+    │   ├── InstancedGltfMeshes.tsx  # 共享 GLB 实例批渲染
+    │   ├── GridDebugToggle.tsx      # 地图细网格调试线开关
     │   ├── CloudTransition.tsx   # globe ↔ map 云朵转场
     │   ├── DetailsPanel.tsx      # 右侧滑出详情
-    │   ├── Sidebar.tsx           # 文件列表、sort、tag paths 开关
+    │   ├── Sidebar.tsx           # 文件列表、sort、tag chip 筛选
     │   └── HUD.tsx               # 顶部面包屑 + 帮助
     ├── layouts/
     │   ├── BaseLayout.astro
@@ -74,13 +76,17 @@ npm run preview      # 预览构建
     │   ├── map-config.ts         # 地图尺寸、间距、建筑/装饰缩放系数
     │   ├── note-size.ts          # 字数分档、侧栏字数格式化
     │   ├── random.ts             # mulberry32 + FNV-1a 种子
-    │   ├── build-tree.ts         # content → WorldTree + tagBridges
-    │   ├── layout.ts             # 球面大陆 / 平面建筑摆放
+    │   ├── build-tree.ts         # content → WorldTree
+    │   ├── build-tag-graph.ts    # 同 tag 笔记生成 spanning tree 边
+    │   ├── layout.ts             # 球面大陆 / 网格建筑摆放
+    │   ├── grid.ts               # 地图细网格、占用、寻路辅助
+    │   ├── place-continent-layout.ts  # 建筑 + tag 马路预计算
+    │   ├── place-roads.ts        # tag 边 → 网格寻路马路段
+    │   ├── road-tiles.ts         # 路径格 → 直/弯/T/十字/端点 GLB
+    │   ├── place-decorations.ts  # 装饰与森林散布
+    │   ├── forest-zones.ts       # 森林区域（椭圆/带状）选取
+    │   ├── gltf-layout.ts
     │   ├── pick-building-model.ts
-    │   ├── tag-bridges.ts        # tag 树选边、桥型
-    │   ├── tag-bridge-animation.ts
-    │   ├── plank-bridge.ts       # 桥曲线、木板几何、桥廊 hit
-    │   ├── bridge-tag-info.ts    # 桥选中后 tag 分组文案
     │   ├── note-metadata.ts
     │   ├── content-paths.ts
     │   ├── remark-obsidian-images.ts
@@ -88,7 +94,7 @@ npm run preview      # 预览构建
     ├── pages/
     │   ├── index.astro           # 3D 世界
     │   └── notes/[...slug].astro
-    ├── store.ts                  # zustand：视图、选中笔记/桥、tag paths
+    ├── store.ts                  # zustand：视图、选中笔记、activeTags、网格调试
     └── styles/global.css
 ```
 
@@ -98,7 +104,7 @@ npm run preview      # 预览构建
 - 拖拽旋转 / 鼠标滚轮缩放
 - 单击大陆显示名称气泡 + 笔记计数
 - 双击大陆 → 云朵转场 → 进入 2.5D 地图
-- 2.5D 正交投影地图；建筑位置由 `(continentId + noteId)` 种子摆放，**永远稳定**
+- 2.5D 正交投影地图；建筑在细网格上占据 N×N 块，摆放顺序与位置由 `(continentId + noteId)` 种子决定，**永远稳定**
 - **建筑样式（用哪座 GLB）**：frontmatter `building: <id>` 优先；否则按**正文字数**分档（不足 200 → small；200–2999 → medium；3000 及以上 → large），在对应档的模型池里按 `note.id` 种子随机选一个（见 `building-catalog.ts`）
 - **建筑在地图上的大小**：正文字数越大，均匀缩放越大；再乘以 catalog 里的 `footprint` 与全局系数（`map-config.ts`）
 - 单击建筑 → 右侧详情面板滑出
@@ -106,8 +112,9 @@ npm run preview      # 预览构建
 - 右侧文件列表显示**字数**；hover 文件名 → 建筑高亮
 - sort_by 模式：所有建筑升空成浮岛，下挂铭牌，pattern 承托
 - ESC 返回 / 关闭面板
-- 低多边形 GLB 装饰（树、草、花、石头等），按大陆种子散布；种类与 footprint 见 `decoration-catalog.ts`
-- **tag 木板路**：同大陆内按 tag 生成树连通（k−1 条桥）；优先连近距离、每建筑 ≤3 条边；共享 2/3+ tag 为双色/彩虹桥；固定宽度等距木板（数量随桥长）；纵梁/桩；Sidebar「tag paths」开关
+- 低多边形 GLB 装饰（树、草、花、石头等），含按大陆种子选取的森林区域（椭圆/带状）内密集树木；种类与 footprint 见 `decoration-catalog.ts`
+- **tag 马路**：同大陆内每个 tag 对带该 tag 的笔记生成 spanning tree（k−1 条边），优先连近距离；建筑间用 BFS 在细网格上寻路并避开建筑占格；Sidebar 点选 tag chip 后，在对应路径上铺 GLB 拼块（直/弯/T 字/十字/端点），同格多 tag 合并拓扑；`InstancedRoadTiles` 实例化渲染
+- 地图视图右上角「grid」开关可显示细网格调试线
 
 ## 留待之后（未做）
 
@@ -120,12 +127,12 @@ npm run preview      # 预览构建
 ## 交互速查
 
 
-| 视图      | 鼠标                                  | 键盘          |
-| ------- | ----------------------------------- | ----------- |
-| Globe   | 拖拽 = 旋转；单击大陆 = 聚焦；双击大陆 = 进入         | —           |
-| Map     | 拖拽 = 平移；滚轮 = 缩放；单击建筑 = 详情；双击建筑 = 打开；单击空地 = 取消选中 | ESC = 返回/关闭 |
+| 视图               | 鼠标                                                                                         | 键盘          |
+| ---------------- | ------------------------------------------------------------------------------------------ | ----------- |
+| Globe            | 拖拽 = 旋转；单击大陆 = 聚焦；双击大陆 = 进入                                                                | —           |
+| Map              | 拖拽 = 平移；滚轮 = 缩放；单击建筑 = 详情；双击建筑 = 打开；单击空地 = 取消选中                                            | ESC = 返回/关闭 |
 | Map（tag paths 开） | 悬停桥身 = 高亮桥；单击桥 = 选中，底部 dock 显示共享 tag；dock 内 hover 某 tag 行 = 高亮该 tag 下所有建筑；再点同一座桥或空地 = 取消选中 | —           |
-| Sidebar | hover 文件名 → 建筑高亮；点 sort 切换排序；**tag paths** = 显示/隐藏木板桥 | —           |
+| Sidebar          | hover 文件名 → 建筑高亮；点 sort 切换排序；**tag paths** = 显示/隐藏木板桥                                      | —           |
 
 
 ## 美学说明
@@ -139,10 +146,6 @@ npm run preview      # 预览构建
 - markdown 首段首字母放大成 drop-cap，像古籍
 
 如果想换风格，所有颜色都在 `global.css` 顶部的 `:root` 变量里。
-
-
-
-
 
 ## 笔记图片（Obsidian 语法）
 

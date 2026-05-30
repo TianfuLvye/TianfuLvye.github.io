@@ -1,4 +1,8 @@
 import { create } from 'zustand';
+import {
+  DEFAULT_ROAD_DEBUG,
+  type RoadDebugSettings,
+} from './lib/road-debug';
 import type { NoteData, SortKey, ViewState } from './lib/types';
 
 interface WorldStore {
@@ -17,6 +21,10 @@ interface WorldStore {
   transitioning: boolean;
   /** 是否显示地图网格调试线 */
   showGridDebug: boolean;
+  /** 马路 GLB 调试参数 */
+  roadDebug: RoadDebugSettings;
+  /** 是否显示马路调试面板 */
+  showRoadDebugPanel: boolean;
 
   enterMap: (continentId: string) => void;
   exitToGlobe: () => void;
@@ -29,6 +37,9 @@ interface WorldStore {
   setSort: (k: SortKey) => void;
   setTransitioning: (t: boolean) => void;
   setShowGridDebug: (v: boolean) => void;
+  setRoadDebug: (next: RoadDebugSettings) => void;
+  resetRoadDebug: () => void;
+  setShowRoadDebugPanel: (v: boolean) => void;
 }
 
 export const useWorld = create<WorldStore>((set) => ({
@@ -40,6 +51,8 @@ export const useWorld = create<WorldStore>((set) => ({
   sortKey: 'default',
   transitioning: false,
   showGridDebug: false,
+  roadDebug: DEFAULT_ROAD_DEBUG,
+  showRoadDebugPanel: true,
 
   enterMap: (continentId) =>
     set({
@@ -74,4 +87,7 @@ export const useWorld = create<WorldStore>((set) => ({
   setSort: (k) => set({ sortKey: k }),
   setTransitioning: (t) => set({ transitioning: t }),
   setShowGridDebug: (v) => set({ showGridDebug: v }),
+  setRoadDebug: (next) => set({ roadDebug: next }),
+  resetRoadDebug: () => set({ roadDebug: DEFAULT_ROAD_DEBUG }),
+  setShowRoadDebugPanel: (v) => set({ showRoadDebugPanel: v }),
 }));

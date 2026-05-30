@@ -12,6 +12,8 @@ export interface RoadTileInstance {
   col: number;
   row: number;
   kind: RoadTileKind;
+  /** Connection bitmask (N=1, E=2, S=4, W=8). */
+  mask: number;
   rotationY: number;
 }
 
@@ -133,7 +135,7 @@ export function mergeActiveRoadTiles(
     if (mask === 0) continue;
 
     const { kind, rotationY } = pickTileFromMask(mask);
-    tiles.push({ col, row, kind, rotationY });
+    tiles.push({ col, row, kind, mask, rotationY });
   }
 
   tiles.sort((a, b) =>
