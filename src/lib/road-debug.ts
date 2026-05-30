@@ -32,7 +32,7 @@ export const DEFAULT_ROAD_DEBUG: RoadDebugSettings = {
     end: 180,
   },
   straightDeg: { ew: 90, ns: 0 },
-  bendDeg: { ne: 270, es: 90, sw: 90, wn: 0 },
+  bendDeg: { ne: 270, es: 180, sw: 90, wn: 0 },
   endDeg: { n: 0, e: 90, s: 180, w: -90 },
   tJunctionDeg: { esw: 0, nsw: 90, new: 180, nes: -90 },
   crossDeg: 0,

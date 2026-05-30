@@ -5,6 +5,7 @@ import {
   buildingGridCells,
   buildingWorldCenter,
   cellKey,
+  isInBounds,
   overflowBlockAnchors,
   shuffleCells,
   type GridCell,
@@ -235,6 +236,23 @@ export function gridPositionForBuilding(
 ): readonly [number, number] {
   const half = (building.gridSpan - 1) / 2;
   return [building.gridCol + half, building.gridRow + half] as const;
+}
+
+/** Road attachment cells: one grid cell outside each edge midpoint (N/E/S/W). */
+export function buildingRoadConnectionCells(
+  building: BuildingPlacement,
+): GridCell[] {
+  const span = building.gridSpan;
+  const half = (span - 1) / 2;
+  const centerCol = building.gridCol + half;
+  const centerRow = building.gridRow + half;
+  const candidates: GridCell[] = [
+    { col: centerCol, row: building.gridRow - 1 },
+    { col: building.gridCol + span, row: centerRow },
+    { col: centerCol, row: building.gridRow + span },
+    { col: building.gridCol - 1, row: centerRow },
+  ];
+  return candidates.filter((c) => isInBounds(c.col, c.row));
 }
 
 /**

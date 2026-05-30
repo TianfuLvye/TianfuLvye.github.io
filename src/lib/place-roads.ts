@@ -7,7 +7,10 @@ import {
   neighbors4,
   type GridCell,
 } from './grid';
-import type { BuildingPlacement } from './layout';
+import {
+  buildingRoadConnectionCells,
+  type BuildingPlacement,
+} from './layout';
 
 const ROAD_BASE_Y = 0.04;
 
@@ -29,22 +32,6 @@ function buildingCellSet(buildings: BuildingPlacement[]): Set<string> {
   return set;
 }
 
-function perimeterCells(building: BuildingPlacement): GridCell[] {
-  const interior = new Set(
-    building.gridCells.map((c) => cellKey(c.col, c.row)),
-  );
-  const perim = new Map<string, GridCell>();
-  for (const c of building.gridCells) {
-    for (const n of neighbors4(c.col, c.row)) {
-      const k = cellKey(n.col, n.row);
-      if (!interior.has(k)) perim.set(k, n);
-    }
-  }
-  return [...perim.values()].sort((a, b) =>
-    a.col !== b.col ? a.col - b.col : a.row - b.row,
-  );
-}
-
 function manhattanPath(a: GridCell, b: GridCell): GridCell[] {
   const path: GridCell[] = [{ col: a.col, row: a.row }];
   let col = a.col;
@@ -62,8 +49,8 @@ function fallbackDirectPath(
   target: BuildingPlacement,
   buildingCells: Set<string>,
 ): GridCell[] {
-  const sources = perimeterCells(source);
-  const targets = perimeterCells(target);
+  const sources = buildingRoadConnectionCells(source);
+  const targets = buildingRoadConnectionCells(target);
   if (sources.length === 0 || targets.length === 0) return [];
 
   let bestA = sources[0];
@@ -90,9 +77,9 @@ function findRoadPath(
   buildings: BuildingPlacement[],
 ): GridCell[] {
   const buildingCells = buildingCellSet(buildings);
-  const sources = perimeterCells(source);
+  const sources = buildingRoadConnectionCells(source);
   const targetKeys = new Set(
-    perimeterCells(target).map((c) => cellKey(c.col, c.row)),
+    buildingRoadConnectionCells(target).map((c) => cellKey(c.col, c.row)),
   );
 
   if (sources.length === 0 || targetKeys.size === 0) return [];
