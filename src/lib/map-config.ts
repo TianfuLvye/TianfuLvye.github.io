@@ -20,8 +20,8 @@ export const GRID_CELL_SIZE = MAP_SIZE / GRID_COLS;
 /** Inset from map edge in fine cells; buildable area is inner (COLS - 2×INSET)². */
 export const GRID_BUILDABLE_INSET = 3;
 
-/** All buildings face west (-X) when model default forward is +Z. */
-export const GRID_BUILDING_ROTATION = -Math.PI / 2;
+/** All buildings share one Y rotation (model default forward is +Z). */
+export const GRID_BUILDING_ROTATION = Math.PI / 2;
 
 /** Building footprint in fine cells (odd spans → unique center cell). */
 export const BUILDING_SPAN_SMALL = 3;
