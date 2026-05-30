@@ -38,14 +38,14 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   houses: {
     id: 'houses',
     url: '/models/buildings/houses.glb',
-    sizeTier: 'small',
+    sizeTier: 'medium',
     footprint: 1.0,
     weight: 1,
   },
-  'small-farm': {
-    id: 'small-farm',
-    url: '/models/buildings/small-farm.glb',
-    sizeTier: 'small',
+  farm: {
+    id: 'farm',
+    url: '/models/buildings/farm.glb',
+    sizeTier: 'medium',
     footprint: 1.0,
     weight: 1,
   },
