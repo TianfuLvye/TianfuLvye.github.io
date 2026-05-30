@@ -14,11 +14,8 @@ import {
   FOREST_ELLIPSE_RZ_MAX,
   FOREST_ELLIPSE_RZ_MIN,
   FOREST_MIN_BUILDING_DIST,
-  FOREST_RIBBON_LENGTH,
   FOREST_RIBBON_WIDTH,
-  GRID_BUILDABLE_INSET,
-  GRID_CELL_SIZE,
-  MAP_SIZE,
+  type ContinentMapConfig,
 } from './map-config';
 import { rangeFrom } from './random';
 
@@ -42,8 +39,8 @@ export type ForestZone =
 
 type EdgeSide = 'north' | 'south' | 'east' | 'west';
 
-function buildableHalfExtent(): number {
-  return MAP_SIZE / 2 - GRID_BUILDABLE_INSET * GRID_CELL_SIZE;
+function buildableHalfExtent(cfg: ContinentMapConfig): number {
+  return cfg.mapSize / 2 - cfg.buildableInset * cfg.cellSize;
 }
 
 function rotateOffset(x: number, z: number, rotation: number): [number, number] {
@@ -92,9 +89,13 @@ function randomEdgeBiasedCenter(
   return [Math.cos(angle) * r, Math.sin(angle) * r];
 }
 
-function edgeRibbonZone(side: EdgeSide, rng: () => number): ForestZone {
-  const half = buildableHalfExtent();
-  const inset = FOREST_RIBBON_WIDTH / 2 + GRID_CELL_SIZE * 0.5;
+function edgeRibbonZone(
+  cfg: ContinentMapConfig,
+  side: EdgeSide,
+  rng: () => number,
+): ForestZone {
+  const half = buildableHalfExtent(cfg);
+  const inset = FOREST_RIBBON_WIDTH / 2 + cfg.cellSize * 0.5;
   const jitter = rangeFrom(rng, -1.2, 1.2);
 
   switch (side) {
@@ -103,7 +104,7 @@ function edgeRibbonZone(side: EdgeSide, rng: () => number): ForestZone {
         kind: 'ribbon',
         cx: jitter,
         cz: -half + inset,
-        length: FOREST_RIBBON_LENGTH,
+        length: cfg.forestRibbonLength,
         width: FOREST_RIBBON_WIDTH,
         rotation: 0,
       };
@@ -112,7 +113,7 @@ function edgeRibbonZone(side: EdgeSide, rng: () => number): ForestZone {
         kind: 'ribbon',
         cx: jitter,
         cz: half - inset,
-        length: FOREST_RIBBON_LENGTH,
+        length: cfg.forestRibbonLength,
         width: FOREST_RIBBON_WIDTH,
         rotation: 0,
       };
@@ -121,7 +122,7 @@ function edgeRibbonZone(side: EdgeSide, rng: () => number): ForestZone {
         kind: 'ribbon',
         cx: -half + inset,
         cz: jitter,
-        length: FOREST_RIBBON_LENGTH,
+        length: cfg.forestRibbonLength,
         width: FOREST_RIBBON_WIDTH,
         rotation: Math.PI / 2,
       };
@@ -130,15 +131,18 @@ function edgeRibbonZone(side: EdgeSide, rng: () => number): ForestZone {
         kind: 'ribbon',
         cx: half - inset,
         cz: jitter,
-        length: FOREST_RIBBON_LENGTH,
+        length: cfg.forestRibbonLength,
         width: FOREST_RIBBON_WIDTH,
         rotation: Math.PI / 2,
       };
   }
 }
 
-function randomEllipseZone(rng: () => number): ForestZone {
-  const half = buildableHalfExtent();
+function randomEllipseZone(
+  cfg: ContinentMapConfig,
+  rng: () => number,
+): ForestZone {
+  const half = buildableHalfExtent(cfg);
   const [cx, cz] = randomEdgeBiasedCenter(rng, half);
   return {
     kind: 'ellipse',
@@ -161,6 +165,7 @@ function shuffleSides(rng: () => number): EdgeSide[] {
 
 /** Edge ribbons + perimeter-biased ellipses after buildings are placed. */
 export function selectForestZones(
+  cfg: ContinentMapConfig,
   rng: () => number,
   occupancy: GridOccupancy,
 ): ForestZone[] {
@@ -170,17 +175,17 @@ export function selectForestZones(
   // ~75% chance per edge → usually 2–3 ribbons, occasionally all four.
   for (const side of sides) {
     if (rng() < 0.75) {
-      zones.push(edgeRibbonZone(side, rng));
+      zones.push(edgeRibbonZone(cfg, side, rng));
     }
   }
 
   for (let i = 0; i < FOREST_ELLIPSE_COUNT; i++) {
-    const zone = randomEllipseZone(rng);
-    const centerCell = worldToCell(zone.cx, zone.cz);
+    const zone = randomEllipseZone(cfg, rng);
+    const centerCell = worldToCell(cfg, zone.cx, zone.cz);
     if (
       centerCell &&
       occupancy.minChebyshevToBuilding(centerCell.col, centerCell.row) *
-        GRID_CELL_SIZE <
+        cfg.cellSize <
         FOREST_MIN_BUILDING_DIST
     ) {
       continue;
@@ -192,6 +197,7 @@ export function selectForestZones(
 }
 
 export function collectForestCells(
+  cfg: ContinentMapConfig,
   zone: ForestZone,
   gridCells: GridCell[],
   forestId: number,
@@ -200,11 +206,11 @@ export function collectForestCells(
   const cells: GridCell[] = [];
 
   for (const cell of gridCells) {
-    if (!isBuildableCell(cell.col, cell.row)) continue;
+    if (!isBuildableCell(cfg, cell.col, cell.row)) continue;
     if (occupancy.hasBuilding(cell.col, cell.row)) continue;
     if (occupancy.hasForest(cell.col, cell.row)) continue;
 
-    const [x, z] = cellCenter(cell.col, cell.row);
+    const [x, z] = cellCenter(cfg, cell.col, cell.row);
     if (!pointInForestZone(x, z, zone)) continue;
 
     occupancy.setForest(cell.col, cell.row, forestId);
@@ -241,22 +247,27 @@ export function randomPointInZone(
   return null;
 }
 
-export function worldToCell(x: number, z: number): GridCell | null {
-  const half = MAP_SIZE / 2;
-  const col = Math.floor((x + half) / GRID_CELL_SIZE);
-  const row = Math.floor((z + half) / GRID_CELL_SIZE);
-  if (!isBuildableCell(col, row)) return null;
+export function worldToCell(
+  cfg: ContinentMapConfig,
+  x: number,
+  z: number,
+): GridCell | null {
+  const half = cfg.mapSize / 2;
+  const col = Math.floor((x + half) / cfg.cellSize);
+  const row = Math.floor((z + half) / cfg.cellSize);
+  if (!isBuildableCell(cfg, col, row)) return null;
   return { col, row };
 }
 
 export function isFarFromBuildingsWorld(
+  cfg: ContinentMapConfig,
   x: number,
   z: number,
   occupancy: GridOccupancy,
   minDist: number,
 ): boolean {
-  const cell = worldToCell(x, z);
+  const cell = worldToCell(cfg, x, z);
   if (!cell) return false;
   const minCheb = occupancy.minChebyshevToBuilding(cell.col, cell.row);
-  return minCheb * GRID_CELL_SIZE >= minDist;
+  return minCheb * cfg.cellSize >= minDist;
 }

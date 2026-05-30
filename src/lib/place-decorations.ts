@@ -24,7 +24,6 @@ import {
 import type { BuildingPlacement } from './layout';
 import {
   DECOR_FLOWER_PATCH_DENSITY,
-  DECOR_LARGE_MIN_BUILDING_DIST,
   DECOR_MAX_INSTANCES,
   DECOR_POT_BUILDING_CHANCE,
   DECOR_WILD_MIN_BUILDING_DIST,
@@ -33,10 +32,7 @@ import {
   FOREST_GROUND_DENSITY,
   FOREST_MIN_BUILDING_DIST,
   FOREST_TREE_DENSITY,
-  GRID_CELL_SIZE,
-  GRID_FOREST_GROUND_TRUNK_CLEARANCE,
-  GRID_FOREST_TREE_MIN_SEPARATION,
-  MAP_SIZE,
+  type ContinentMapConfig,
 } from './map-config';
 import { rngFor, rangeFrom } from './random';
 
@@ -63,9 +59,12 @@ function rotationToward(
   return Math.atan2(toX - fromX, toZ - fromZ);
 }
 
-function largePropMinChebyshev(def: DecorationDef | undefined): number {
+function largePropMinChebyshev(
+  cfg: ContinentMapConfig,
+  def: DecorationDef | undefined,
+): number {
   const minDist = def?.minBuildingDist ?? DECOR_WILD_MIN_BUILDING_DIST;
-  return Math.max(1, Math.ceil(minDist / GRID_CELL_SIZE));
+  return Math.max(1, Math.ceil(minDist / cfg.cellSize));
 }
 
 function isForestTree(def: DecorationDef): boolean {
@@ -97,8 +96,11 @@ function isFarFromPoints(
   return true;
 }
 
-function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
-  const occupancy = new GridOccupancy();
+function initOccupancy(
+  cfg: ContinentMapConfig,
+  buildings: BuildingPlacement[],
+): GridOccupancy {
+  const occupancy = new GridOccupancy(cfg);
   for (const b of buildings) {
     occupancy.markBuildingCells(b.gridCells, b.note.id);
   }
@@ -106,6 +108,7 @@ function initOccupancy(buildings: BuildingPlacement[]): GridOccupancy {
 }
 
 function placeBuildingAdjacent(
+  cfg: ContinentMapConfig,
   continentId: string,
   buildings: BuildingPlacement[],
   occupancy: GridOccupancy,
@@ -128,7 +131,7 @@ function placeBuildingAdjacent(
 
       for (let i = 0; i < count; i++) {
         const cell = building.gridCells[i % building.gridCells.length];
-        const [x, z] = subCellWorldPosition(cell.col, cell.row, i + 1, rng);
+        const [x, z] = subCellWorldPosition(cfg, cell.col, cell.row, i + 1, rng);
 
         out.push({
           decorId: def.id,
@@ -143,6 +146,7 @@ function placeBuildingAdjacent(
 }
 
 function placeForestZoneDecor(
+  cfg: ContinentMapConfig,
   rng: () => number,
   zone: ForestZone,
   treePool: DecorationDef[],
@@ -169,12 +173,17 @@ function placeForestZoneDecor(
       const [x, z] = point;
       if (!pointInForestZone(x, z, zone)) continue;
       if (
-        !isFarFromBuildingsWorld(x, z, occupancy, FOREST_MIN_BUILDING_DIST)
+        !isFarFromBuildingsWorld(cfg, x, z, occupancy, FOREST_MIN_BUILDING_DIST)
       ) {
         continue;
       }
       if (
-        !isFarFromPoints(x, z, placedPositions, GRID_FOREST_TREE_MIN_SEPARATION)
+        !isFarFromPoints(
+          x,
+          z,
+          placedPositions,
+          cfg.forestTreeMinSeparation,
+        )
       ) {
         continue;
       }
@@ -189,7 +198,7 @@ function placeForestZoneDecor(
         rotation: rng() * Math.PI * 2,
         scale: scaleJitter(rng),
       });
-      const cell = worldToCell(x, z);
+      const cell = worldToCell(cfg, x, z);
       if (cell) occupancy.incrementPlants(cell.col, cell.row);
       treesPlaced++;
     }
@@ -209,11 +218,16 @@ function placeForestZoneDecor(
 
     const [x, z] = point;
     if (!pointInForestZone(x, z, zone)) continue;
-    if (!isFarFromBuildingsWorld(x, z, occupancy, FOREST_MIN_BUILDING_DIST)) {
+    if (!isFarFromBuildingsWorld(cfg, x, z, occupancy, FOREST_MIN_BUILDING_DIST)) {
       continue;
     }
     if (
-      !isFarFromPoints(x, z, placedPositions, GRID_FOREST_GROUND_TRUNK_CLEARANCE)
+      !isFarFromPoints(
+        x,
+        z,
+        placedPositions,
+        cfg.forestGroundTrunkClearance,
+      )
     ) {
       continue;
     }
@@ -228,13 +242,14 @@ function placeForestZoneDecor(
       rotation: rng() * Math.PI * 2,
       scale: scaleJitter(rng),
     });
-    const cell = worldToCell(x, z);
+    const cell = worldToCell(cfg, x, z);
     if (cell) occupancy.incrementPlants(cell.col, cell.row);
     groundPlaced++;
   }
 }
 
 function placeForests(
+  cfg: ContinentMapConfig,
   rng: () => number,
   gridCells: GridCell[],
   occupancy: GridOccupancy,
@@ -246,11 +261,12 @@ function placeForests(
   const { trees: treePool, ground: groundPool } = splitForestPool(forestPool);
   if (treePool.length === 0 && groundPool.length === 0) return;
 
-  const zones = selectForestZones(rng, occupancy);
+  const zones = selectForestZones(cfg, rng, occupancy);
   let forestId = 0;
 
   for (const zone of zones) {
     const forestCells = collectForestCells(
+      cfg,
       zone,
       gridCells,
       forestId,
@@ -261,12 +277,13 @@ function placeForests(
       continue;
     }
 
-    placeForestZoneDecor(rng, zone, treePool, groundPool, occupancy, out);
+    placeForestZoneDecor(cfg, rng, zone, treePool, groundPool, occupancy, out);
     forestId++;
   }
 }
 
 function placeFlowerPatches(
+  cfg: ContinentMapConfig,
   rng: () => number,
   density: number,
   gridCells: GridCell[],
@@ -290,7 +307,7 @@ function placeFlowerPatches(
     for (let i = 0; i < count; i++) {
       const decorId = pickFromPool(rng, flowerPool);
       if (!decorId) continue;
-      const [x, z] = subCellWorldPosition(cell.col, cell.row, i + 2, rng);
+      const [x, z] = subCellWorldPosition(cfg, cell.col, cell.row, i + 2, rng);
       out.push({
         decorId,
         position: [x, 0, z],
@@ -304,6 +321,7 @@ function placeFlowerPatches(
 }
 
 function placeWildScatter(
+  cfg: ContinentMapConfig,
   rng: () => number,
   density: number,
   gridCells: GridCell[],
@@ -327,12 +345,12 @@ function placeWildScatter(
     if (!decorId) break;
 
     const def = wildPool.find((d) => d.id === decorId);
-    const minCheb = largePropMinChebyshev(def);
+    const minCheb = largePropMinChebyshev(cfg, def);
     if (occupancy.minChebyshevToBuilding(cell.col, cell.row) < minCheb) {
       continue;
     }
 
-    const [x, z] = subCellWorldPosition(cell.col, cell.row, 0, rng);
+    const [x, z] = subCellWorldPosition(cfg, cell.col, cell.row, 0, rng);
 
     out.push({
       decorId,
@@ -352,20 +370,20 @@ function shuffleCopy<T>(items: T[], rng: () => number): T[] {
 
 export function placeDecorations(input: {
   continentId: string;
-  mapSize: number;
+  cfg: ContinentMapConfig;
   buildings: BuildingPlacement[];
 }): DecorationPlacement[] {
-  const { continentId, mapSize, buildings } = input;
+  const { continentId, cfg, buildings } = input;
   const rng = rngFor(`decor:${continentId}`);
   const out: DecorationPlacement[] = [];
-  const occupancy = initOccupancy(buildings);
-  const density = decorDensityScale(mapSize);
-  const gridCells = allCells();
+  const occupancy = initOccupancy(cfg, buildings);
+  const density = decorDensityScale(cfg.mapSize, cfg.gridAreaScale);
+  const gridCells = allCells(cfg);
 
-  placeBuildingAdjacent(continentId, buildings, occupancy, out);
-  placeForests(rng, gridCells, occupancy, out);
-  placeFlowerPatches(rng, density, gridCells, occupancy, out);
-  placeWildScatter(rng, density, gridCells, occupancy, out);
+  placeBuildingAdjacent(cfg, continentId, buildings, occupancy, out);
+  placeForests(cfg, rng, gridCells, occupancy, out);
+  placeFlowerPatches(cfg, rng, density, gridCells, occupancy, out);
+  placeWildScatter(cfg, rng, density, gridCells, occupancy, out);
 
   if (out.length > DECOR_MAX_INSTANCES) {
     return out.slice(0, DECOR_MAX_INSTANCES);

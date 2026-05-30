@@ -8,9 +8,9 @@ import { gridLineSegments } from '../lib/grid';
 import type { BuildingPlacement } from '../lib/layout';
 import { placeContinentLayout } from '../lib/place-continent-layout';
 import {
+  continentMapConfig,
   GRID_BUILDING_ROTATION,
-  MAP_CAMERA_ZOOM,
-  MAP_SIZE,
+  type ContinentMapConfig,
 } from '../lib/map-config';
 import { placeDecorations } from '../lib/place-decorations';
 import { useWorld } from '../store';
@@ -46,9 +46,13 @@ interface Props {
 }
 
 export default function MapView({ continent, onOpenNote }: Props) {
+  const mapConfig = useMemo(
+    () => continentMapConfig(continent.notes.length),
+    [continent.notes.length],
+  );
   const layout = useMemo(
-    () => placeContinentLayout(continent.notes, MAP_SIZE),
-    [continent.notes],
+    () => placeContinentLayout(continent.notes, mapConfig),
+    [continent.notes, mapConfig],
   );
   const { buildings, tagRoadSegments } = layout;
   const sortKey = useWorld((s) => s.sortKey);
@@ -101,11 +105,11 @@ export default function MapView({ continent, onOpenNote }: Props) {
       <MapModelPreload buildings={buildings} />
       <OrthographicCamera
         makeDefault
-        zoom={MAP_CAMERA_ZOOM}
+        zoom={mapConfig.cameraZoom}
         position={[
-          MAP_SIZE * 0.5,
-          MAP_SIZE * 0.5,
-          MAP_SIZE * 0.5,
+          mapConfig.mapSize * 0.5,
+          mapConfig.mapSize * 0.5,
+          mapConfig.mapSize * 0.5,
         ]}
         near={0.1}
         far={100}
@@ -135,28 +139,29 @@ export default function MapView({ continent, onOpenNote }: Props) {
           clearActiveTags();
         }}
       >
-        <planeGeometry args={[MAP_SIZE, MAP_SIZE, 1, 1]} />
+        <planeGeometry args={[mapConfig.mapSize, mapConfig.mapSize, 1, 1]} />
         <meshStandardMaterial color="#d9c79a" roughness={0.95} />
       </mesh>
 
       {/* 海岸线 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
-        <planeGeometry args={[MAP_SIZE + 4, MAP_SIZE + 4, 1, 1]} />
+        <planeGeometry args={[mapConfig.mapSize + 4, mapConfig.mapSize + 4, 1, 1]} />
         <meshStandardMaterial color="#264a6b" roughness={0.6} />
       </mesh>
 
-      {showGridDebug && <GridOverlay />}
+      {showGridDebug && <GridOverlay cfg={mapConfig} />}
 
       {/* 一些装饰性的小树 / 灌木 */}
       <Decorations
         continentId={continent.id}
-        mapSize={MAP_SIZE}
+        cfg={mapConfig}
         buildings={buildings}
       />
 
       <InstancedRoadTiles
         segments={tagRoadSegments}
         activeTags={activeTags}
+        cfg={mapConfig}
       />
 
       {/* 建筑物 */}
@@ -374,9 +379,9 @@ function BuildingMotion({
 
 /* ---------- Grid overlay ---------- */
 
-function GridOverlay() {
+function GridOverlay({ cfg }: { cfg: ContinentMapConfig }) {
   const geometry = useMemo(() => {
-    const segments = gridLineSegments();
+    const segments = gridLineSegments(cfg);
     const positions = new Float32Array(segments.length * 6);
     segments.forEach(([a, b], i) => {
       const o = i * 6;
@@ -390,7 +395,7 @@ function GridOverlay() {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     return geo;
-  }, []);
+  }, [cfg]);
 
   return (
     <lineSegments geometry={geometry} renderOrder={1}>
@@ -433,21 +438,21 @@ function FloatingPattern({ y, hue }: { y: number; hue: number }) {
 
 function Decorations({
   continentId,
-  mapSize,
+  cfg,
   buildings,
 }: {
   continentId: string;
-  mapSize: number;
+  cfg: ContinentMapConfig;
   buildings: BuildingPlacement[];
 }) {
   const items = useMemo(
     () =>
       placeDecorations({
         continentId,
-        mapSize,
+        cfg,
         buildings,
       }),
-    [continentId, mapSize, buildings],
+    [continentId, cfg, buildings],
   );
 
   return <InstancedDecorations items={items} />;

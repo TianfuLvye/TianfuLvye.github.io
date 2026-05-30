@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ROAD_TILES } from '../config/road-catalog';
 import { cellCenter } from '../lib/grid';
-import { ROAD_TILE_Y_OFFSET } from '../lib/map-config';
+import { DEFAULT_MAP_CONFIG, ROAD_TILE_Y_OFFSET, type ContinentMapConfig } from '../lib/map-config';
 import type { RoadSegment } from '../lib/place-roads';
 import { mergeActiveRoadTiles } from '../lib/road-tiles';
 import GlTFModel from './GlTFModel';
@@ -9,9 +9,10 @@ import GlTFModel from './GlTFModel';
 interface Props {
   segments: RoadSegment[];
   activeTags: string[];
+  cfg?: ContinentMapConfig;
 }
 
-export default function TagRoadTiles({ segments, activeTags }: Props) {
+export default function TagRoadTiles({ segments, activeTags, cfg = DEFAULT_MAP_CONFIG }: Props) {
   const tiles = useMemo(
     () => mergeActiveRoadTiles(segments, activeTags),
     [segments, activeTags],
@@ -23,7 +24,7 @@ export default function TagRoadTiles({ segments, activeTags }: Props) {
     <group>
       {tiles.map((tile) => {
         const def = ROAD_TILES[tile.kind];
-        const [x, z] = cellCenter(tile.col, tile.row);
+        const [x, z] = cellCenter(cfg, tile.col, tile.row);
         const rotationY = tile.rotationY + def.defaultRotation;
         return (
           <group

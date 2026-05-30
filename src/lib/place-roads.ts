@@ -7,6 +7,7 @@ import {
   neighbors4,
   type GridCell,
 } from './grid';
+import type { ContinentMapConfig } from './map-config';
 import {
   buildingRoadConnectionCells,
   type BuildingPlacement,
@@ -32,25 +33,30 @@ function buildingCellSet(buildings: BuildingPlacement[]): Set<string> {
   return set;
 }
 
-function manhattanPath(a: GridCell, b: GridCell): GridCell[] {
+function manhattanPath(
+  cfg: ContinentMapConfig,
+  a: GridCell,
+  b: GridCell,
+): GridCell[] {
   const path: GridCell[] = [{ col: a.col, row: a.row }];
   let col = a.col;
   let row = a.row;
   while (col !== b.col || row !== b.row) {
     if (col !== b.col) col += col < b.col ? 1 : -1;
     else row += row < b.row ? 1 : -1;
-    if (isInBounds(col, row)) path.push({ col, row });
+    if (isInBounds(cfg, col, row)) path.push({ col, row });
   }
   return path;
 }
 
 function fallbackDirectPath(
+  cfg: ContinentMapConfig,
   source: BuildingPlacement,
   target: BuildingPlacement,
   buildingCells: Set<string>,
 ): GridCell[] {
-  const sources = buildingRoadConnectionCells(source);
-  const targets = buildingRoadConnectionCells(target);
+  const sources = buildingRoadConnectionCells(cfg, source);
+  const targets = buildingRoadConnectionCells(cfg, target);
   if (sources.length === 0 || targets.length === 0) return [];
 
   let bestA = sources[0];
@@ -67,19 +73,20 @@ function fallbackDirectPath(
     }
   }
 
-  const path = manhattanPath(bestA, bestB);
+  const path = manhattanPath(cfg, bestA, bestB);
   return path.filter((c) => !buildingCells.has(cellKey(c.col, c.row)));
 }
 
 function findRoadPath(
+  cfg: ContinentMapConfig,
   source: BuildingPlacement,
   target: BuildingPlacement,
   buildings: BuildingPlacement[],
 ): GridCell[] {
   const buildingCells = buildingCellSet(buildings);
-  const sources = buildingRoadConnectionCells(source);
+  const sources = buildingRoadConnectionCells(cfg, source);
   const targetKeys = new Set(
-    buildingRoadConnectionCells(target).map((c) => cellKey(c.col, c.row)),
+    buildingRoadConnectionCells(cfg, target).map((c) => cellKey(c.col, c.row)),
   );
 
   if (sources.length === 0 || targetKeys.size === 0) return [];
@@ -109,11 +116,11 @@ function findRoadPath(
       break;
     }
 
-    for (const n of neighbors4(cur.col, cur.row)) {
+    for (const n of neighbors4(cfg, cur.col, cur.row)) {
       const nk = cellKey(n.col, n.row);
       if (visited.has(nk)) continue;
       if (buildingCells.has(nk)) continue;
-      if (!isInBounds(n.col, n.row)) continue;
+      if (!isInBounds(cfg, n.col, n.row)) continue;
       if (!prev.has(nk)) {
         prev.set(nk, ck);
         queue.push(n);
@@ -122,7 +129,7 @@ function findRoadPath(
   }
 
   if (!foundTarget) {
-    return fallbackDirectPath(source, target, buildingCells);
+    return fallbackDirectPath(cfg, source, target, buildingCells);
   }
 
   const path: GridCell[] = [];
@@ -135,14 +142,18 @@ function findRoadPath(
   return path;
 }
 
-function cellsToWaypoints(cells: GridCell[]): THREE.Vector3[] {
+function cellsToWaypoints(
+  cfg: ContinentMapConfig,
+  cells: GridCell[],
+): THREE.Vector3[] {
   return cells.map(({ col, row }) => {
-    const [x, z] = cellCenter(col, row);
+    const [x, z] = cellCenter(cfg, col, row);
     return new THREE.Vector3(x, ROAD_BASE_Y, z);
   });
 }
 
 export function placeRoadSegment(
+  cfg: ContinentMapConfig,
   edge: TagEdge,
   buildings: BuildingPlacement[],
 ): RoadSegment | null {
@@ -151,7 +162,7 @@ export function placeRoadSegment(
   const target = byId.get(edge.targetId);
   if (!source || !target) return null;
 
-  const gridCells = findRoadPath(source, target, buildings);
+  const gridCells = findRoadPath(cfg, source, target, buildings);
   if (gridCells.length === 0) return null;
 
   return {
@@ -159,17 +170,18 @@ export function placeRoadSegment(
     sourceId: edge.sourceId,
     targetId: edge.targetId,
     gridCells,
-    waypoints: cellsToWaypoints(gridCells),
+    waypoints: cellsToWaypoints(cfg, gridCells),
   };
 }
 
 export function placeTagRoads(
+  cfg: ContinentMapConfig,
   edges: TagEdge[],
   buildings: BuildingPlacement[],
 ): RoadSegment[] {
   const segments: RoadSegment[] = [];
   for (const edge of edges) {
-    const segment = placeRoadSegment(edge, buildings);
+    const segment = placeRoadSegment(cfg, edge, buildings);
     if (segment) segments.push(segment);
   }
   return segments;

@@ -11,15 +11,13 @@ import {
   type GridCell,
 } from './grid';
 import {
-  BUILDING_LARGE_FOOTPRINT_MAX,
-  BUILDING_MEDIUM_FOOTPRINT_MAX,
   BUILDING_MIN_GAP,
-  BUILDING_SMALL_FOOTPRINT_MAX,
   BUILDING_SPAN_LARGE,
   BUILDING_SPAN_MEDIUM,
   BUILDING_SPAN_SMALL,
   GRID_BUILDING_ROTATION,
   type BuildingGridSpan,
+  type ContinentMapConfig,
 } from './map-config';
 import { sizeTierFromNoteSize } from './note-size';
 import { pickBuildingModel } from './pick-building-model';
@@ -159,25 +157,26 @@ function spanLabel(span: BuildingGridSpan): string {
 export function footprintExtentForTier(
   tier: SizeTier,
   rng: () => number,
+  cfg: ContinentMapConfig,
 ): number {
   switch (tier) {
     case 'small':
       return rangeFrom(
         rng,
-        BUILDING_SMALL_FOOTPRINT_MAX * 0.82,
-        BUILDING_SMALL_FOOTPRINT_MAX,
+        cfg.footprintMax.small * 0.82,
+        cfg.footprintMax.small,
       );
     case 'medium':
       return rangeFrom(
         rng,
-        BUILDING_MEDIUM_FOOTPRINT_MAX * 0.85,
-        BUILDING_MEDIUM_FOOTPRINT_MAX,
+        cfg.footprintMax.medium * 0.85,
+        cfg.footprintMax.medium,
       );
     case 'large':
       return rangeFrom(
         rng,
-        BUILDING_LARGE_FOOTPRINT_MAX * 0.88,
-        BUILDING_LARGE_FOOTPRINT_MAX,
+        cfg.footprintMax.large * 0.88,
+        cfg.footprintMax.large,
       );
   }
 }
@@ -201,11 +200,13 @@ function blockIsFree(
 }
 
 function markBlockWithGap(
+  cfg: ContinentMapConfig,
   anchor: GridCell,
   span: BuildingGridSpan,
   taken: Set<string>,
 ): void {
   for (const c of blockCellsWithMargin(
+    cfg,
     anchor.col,
     anchor.row,
     span,
@@ -240,6 +241,7 @@ export function gridPositionForBuilding(
 
 /** Road attachment cells: one grid cell outside each edge midpoint (N/E/S/W). */
 export function buildingRoadConnectionCells(
+  cfg: ContinentMapConfig,
   building: BuildingPlacement,
 ): GridCell[] {
   const span = building.gridSpan;
@@ -252,7 +254,7 @@ export function buildingRoadConnectionCells(
     { col: centerCol, row: building.gridRow + span },
     { col: building.gridCol - 1, row: centerRow },
   ];
-  return candidates.filter((c) => isInBounds(c.col, c.row));
+  return candidates.filter((c) => isInBounds(cfg, c.col, c.row));
 }
 
 /**
@@ -261,7 +263,7 @@ export function buildingRoadConnectionCells(
  */
 export function placeBuildings(
   notes: NoteData[],
-  _mapSize: number,
+  cfg: ContinentMapConfig,
   options?: { blockedCells?: Set<string> },
 ): BuildingPlacement[] {
   const blockedCells = options?.blockedCells ?? new Set<string>();
@@ -272,8 +274,8 @@ export function placeBuildings(
   const anchorIdx = new Map<BuildingGridSpan, number>();
   for (const span of SPAN_PLACE_ORDER) {
     const anchors = [
-      ...buildableBlockAnchors(span),
-      ...overflowBlockAnchors(span),
+      ...buildableBlockAnchors(cfg, span),
+      ...overflowBlockAnchors(cfg, span),
     ];
     shuffleCells(anchors, cellRng);
     anchorsBySpan.set(span, anchors);
@@ -316,10 +318,10 @@ export function placeBuildings(
     anchorIdx.set(gridSpan, slot.nextIdx);
 
     const { col, row } = slot.anchor;
-    markBlockWithGap(slot.anchor, gridSpan, taken);
+    markBlockWithGap(cfg, slot.anchor, gridSpan, taken);
 
     const gridCells = buildingGridCells(col, row, gridSpan);
-    const [x, z] = buildingWorldCenter(col, row, gridSpan);
+    const [x, z] = buildingWorldCenter(cfg, col, row, gridSpan);
 
     placed.push({
       note,
@@ -329,7 +331,7 @@ export function placeBuildings(
       gridSpan,
       gridCells,
       sizeTier,
-      footprintExtent: footprintExtentForTier(sizeTier, rng),
+      footprintExtent: footprintExtentForTier(sizeTier, rng, cfg),
       scale: [1, 1, 1],
       hue: rng() * 360,
       roof: rng(),

@@ -4,6 +4,7 @@ import {
   straightRoadUrlForMask,
 } from '../config/road-catalog';
 import { cellCenter } from '../lib/grid';
+import type { ContinentMapConfig } from '../lib/map-config';
 import { resolveRoadTileRotationY, roadFootprint } from '../lib/road-debug';
 import type { RoadSegment } from '../lib/place-roads';
 import { mergeActiveRoadTiles } from '../lib/road-tiles';
@@ -15,9 +16,10 @@ import InstancedGltfMeshes, {
 interface Props {
   segments: RoadSegment[];
   activeTags: string[];
+  cfg: ContinentMapConfig;
 }
 
-export default function InstancedRoadTiles({ segments, activeTags }: Props) {
+export default function InstancedRoadTiles({ segments, activeTags, cfg }: Props) {
   const roadDebug = useWorld((s) => s.roadDebug);
 
   const tiles = useMemo(
@@ -48,7 +50,7 @@ export default function InstancedRoadTiles({ segments, activeTags }: Props) {
         byUrl.set(url, group);
       }
 
-      const [x, z] = cellCenter(tile.col, tile.row);
+      const [x, z] = cellCenter(cfg, tile.col, tile.row);
       group.instances.push({
         position: [x, 0, z],
         rotationY: resolveRoadTileRotationY(tile.kind, tile.mask, roadDebug),
@@ -56,7 +58,7 @@ export default function InstancedRoadTiles({ segments, activeTags }: Props) {
     }
 
     return [...byUrl.values()];
-  }, [tiles, roadDebug]);
+  }, [tiles, roadDebug, cfg]);
 
   if (grouped.length === 0) return null;
 

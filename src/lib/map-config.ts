@@ -1,5 +1,8 @@
-/** Continent map ground side length (world units). */
-export const MAP_SIZE = 28;
+/** Base continent map ground side length (world units). */
+export const MAP_SIZE_BASE = 28;
+
+/** @deprecated Use MAP_SIZE_BASE or continentMapConfig().mapSize */
+export const MAP_SIZE = MAP_SIZE_BASE;
 
 /** Multiplier on catalog footprint for GLB buildings. */
 export const BUILDING_FOOTPRINT_SCALE = 1.55;
@@ -7,18 +10,32 @@ export const BUILDING_FOOTPRINT_SCALE = 1.55;
 /** Multiplier on decoration catalog footprint and scale caps. */
 export const DECOR_FOOTPRINT_SCALE = 2;
 
-/** Orthographic camera zoom; scales with map so the continent fits the view. */
-export const MAP_CAMERA_ZOOM = Math.round(48 * (MAP_SIZE / 18));
+/** Base fine grid resolution (3× the legacy 10×10 layout). */
+export const GRID_BASE = 30;
 
-/** Fine grid resolution (3× the legacy 10×10 layout). */
-export const GRID_COLS = 30;
-export const GRID_ROWS = 30;
+/** @deprecated Use GRID_BASE or continentMapConfig().gridCols */
+export const GRID_COLS = GRID_BASE;
 
-/** World units per fine grid cell (MAP_SIZE / GRID_COLS). */
+/** @deprecated Use GRID_BASE or continentMapConfig().gridRows */
+export const GRID_ROWS = GRID_BASE;
+
+/** World units per fine grid cell at base size (MAP_SIZE / GRID_COLS). */
 export const GRID_CELL_SIZE = MAP_SIZE / GRID_COLS;
+
+/** Orthographic camera zoom at base size; scales with map so the continent fits the view. */
+export const MAP_CAMERA_ZOOM = Math.round(48 * (MAP_SIZE / 18));
 
 /** Inset from map edge in fine cells; buildable area is inner (COLS - 2×INSET)². */
 export const GRID_BUILDABLE_INSET = 3;
+
+/** Notes at or below this count use the base map size. */
+export const CONTINENT_NOTE_GROWTH_THRESHOLD = 10;
+
+/** Every N notes beyond the threshold triggers one growth step. */
+export const CONTINENT_GROWTH_BATCH = 5;
+
+/** Grid columns/rows added per growth step. */
+export const CONTINENT_GRID_STEP = 6;
 
 /** All buildings share one Y rotation (model default forward is +Z). */
 export const GRID_BUILDING_ROTATION = Math.PI / 2;
@@ -36,7 +53,7 @@ export type BuildingGridSpan =
 /** Minimum empty fine cells between building footprints. */
 export const BUILDING_MIN_GAP = 2;
 
-/** Forest edge ribbons along map sides (world units). */
+/** Forest edge ribbons along map sides (world units) at base size. */
 export const FOREST_RIBBON_LENGTH = MAP_SIZE * 0.72;
 export const FOREST_RIBBON_WIDTH = 3.2;
 
@@ -61,10 +78,10 @@ export const FOREST_GROUND_DENSITY = 0.22;
 /** Min world distance from forest decor to nearest building. */
 export const FOREST_MIN_BUILDING_DIST = 2.0;
 
-/** Min distance from a tree trunk center for ground decor (world units). */
+/** Min distance from a tree trunk center for ground decor (world units) at base size. */
 export const GRID_FOREST_GROUND_TRUNK_CLEARANCE = (MAP_SIZE / 10) * 0.12;
 
-/** Min distance between tree centers within a forest zone (world units). */
+/** Min distance between tree centers within a forest zone (world units) at base size. */
 export const GRID_FOREST_TREE_MIN_SEPARATION = (MAP_SIZE / 10) * 0.32;
 
 /** Default min distance from any building for wild scatter. */
@@ -85,31 +102,86 @@ export const DECOR_WILD_SCATTER_DENSITY = 105;
 /** Legacy 10×10 grid cell count used before fine-grid expansion. */
 export const LEGACY_GRID_CELLS = 10 * 10;
 
-/** Ratio of current grid area to legacy (30×30 → 9×). */
+/** Ratio of base grid area to legacy (30×30 → 9×). */
 export const GRID_AREA_SCALE =
   (GRID_COLS * GRID_ROWS) / LEGACY_GRID_CELLS;
 
+export interface ContinentMapConfig {
+  mapSize: number;
+  gridCols: number;
+  gridRows: number;
+  cellSize: number;
+  buildableInset: number;
+  cameraZoom: number;
+  gridAreaScale: number;
+  forestRibbonLength: number;
+  forestGroundTrunkClearance: number;
+  forestTreeMinSeparation: number;
+  footprintMax: {
+    small: number;
+    medium: number;
+    large: number;
+  };
+  roadTileFootprint: number;
+}
+
+/** Per-continent map dimensions derived from note count. */
+export function continentMapConfig(noteCount: number): ContinentMapConfig {
+  const excess = Math.max(0, noteCount - CONTINENT_NOTE_GROWTH_THRESHOLD);
+  const growthSteps = Math.ceil(excess / CONTINENT_GROWTH_BATCH);
+  const gridCols = GRID_BASE + growthSteps * CONTINENT_GRID_STEP;
+  const gridRows = gridCols;
+  const mapSize = MAP_SIZE_BASE * (gridCols / GRID_BASE);
+  const cellSize = mapSize / gridCols;
+  const gridAreaScale = (gridCols * gridRows) / LEGACY_GRID_CELLS;
+
+  return {
+    mapSize,
+    gridCols,
+    gridRows,
+    cellSize,
+    buildableInset: GRID_BUILDABLE_INSET,
+    cameraZoom: Math.round(48 * (mapSize / 18)),
+    gridAreaScale,
+    forestRibbonLength: mapSize * 0.72,
+    forestGroundTrunkClearance: (mapSize / 10) * 0.12,
+    forestTreeMinSeparation: (mapSize / 10) * 0.32,
+    footprintMax: {
+      small: BUILDING_SPAN_SMALL * cellSize * 0.88,
+      medium: BUILDING_SPAN_MEDIUM * cellSize * 0.88,
+      large: BUILDING_SPAN_LARGE * cellSize * 0.88,
+    },
+    roadTileFootprint: cellSize,
+  };
+}
+
+/** Base map config (≤10 notes). */
+export const DEFAULT_MAP_CONFIG = continentMapConfig(0);
+
 /** Scale decor patch counts for map size and finer grid resolution. */
-export function decorDensityScale(mapSize: number): number {
-  return (mapSize / 18) / Math.sqrt(GRID_AREA_SCALE);
+export function decorDensityScale(
+  mapSize: number,
+  gridAreaScale = GRID_AREA_SCALE,
+): number {
+  return (mapSize / 18) / Math.sqrt(gridAreaScale);
 }
 
 /** Hard cap on total decoration instances per continent. */
 export const DECOR_MAX_INSTANCES = 700;
 
-/** Max horizontal extent for a small building on a 3×3 plot. */
+/** Max horizontal extent for a small building on a 3×3 plot (base size). */
 export const BUILDING_SMALL_FOOTPRINT_MAX =
   BUILDING_SPAN_SMALL * GRID_CELL_SIZE * 0.88;
 
-/** Max horizontal extent for medium buildings on a 5×5 plot. */
+/** Max horizontal extent for medium buildings on a 5×5 plot (base size). */
 export const BUILDING_MEDIUM_FOOTPRINT_MAX =
   BUILDING_SPAN_MEDIUM * GRID_CELL_SIZE * 0.88;
 
-/** Max horizontal extent for large buildings on a 7×7 plot. */
+/** Max horizontal extent for large buildings on a 7×7 plot (base size). */
 export const BUILDING_LARGE_FOOTPRINT_MAX =
   BUILDING_SPAN_LARGE * GRID_CELL_SIZE * 0.88;
 
-/** One road GLB tile spans one fine grid cell. */
+/** One road GLB tile spans one fine grid cell (base size). */
 export const ROAD_TILE_FOOTPRINT = GRID_CELL_SIZE;
 
 /** Vertical offset after grounding road tiles on Y. */

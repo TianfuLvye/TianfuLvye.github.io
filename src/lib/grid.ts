@@ -1,10 +1,6 @@
 import {
-  GRID_BUILDABLE_INSET,
-  GRID_CELL_SIZE,
-  GRID_COLS,
-  GRID_ROWS,
-  MAP_SIZE,
   type BuildingGridSpan,
+  type ContinentMapConfig,
 } from './map-config';
 import { rangeFrom } from './random';
 
@@ -25,50 +21,67 @@ const SUB_CELL_FRACTIONS: Array<[number, number]> = [
   [0.65, 0.5],
 ];
 
-export function isInBounds(col: number, row: number): boolean {
-  return col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS;
+export function isInBounds(
+  cfg: ContinentMapConfig,
+  col: number,
+  row: number,
+): boolean {
+  return col >= 0 && col < cfg.gridCols && row >= 0 && row < cfg.gridRows;
 }
 
-export function isBuildableCell(col: number, row: number): boolean {
-  const inset = GRID_BUILDABLE_INSET;
+export function isBuildableCell(
+  cfg: ContinentMapConfig,
+  col: number,
+  row: number,
+): boolean {
+  const inset = cfg.buildableInset;
   return (
     col >= inset &&
-    col < GRID_COLS - inset &&
+    col < cfg.gridCols - inset &&
     row >= inset &&
-    row < GRID_ROWS - inset
+    row < cfg.gridRows - inset
   );
 }
 
 /** World-space center of a grid cell (building anchor). */
-export function cellCenter(col: number, row: number): [number, number] {
-  const half = MAP_SIZE / 2;
-  const x = (col + 0.5) * GRID_CELL_SIZE - half;
-  const z = (row + 0.5) * GRID_CELL_SIZE - half;
+export function cellCenter(
+  cfg: ContinentMapConfig,
+  col: number,
+  row: number,
+): [number, number] {
+  const half = cfg.mapSize / 2;
+  const x = (col + 0.5) * cfg.cellSize - half;
+  const z = (row + 0.5) * cfg.cellSize - half;
   return [x, z];
 }
 
 /** Deterministic sub-position inside a cell for multiple plants. */
 export function subCellWorldPosition(
+  cfg: ContinentMapConfig,
   col: number,
   row: number,
   slot: number,
   rng?: () => number,
 ): [number, number] {
-  const half = MAP_SIZE / 2;
-  const cellLeft = col * GRID_CELL_SIZE - half;
-  const cellBottom = row * GRID_CELL_SIZE - half;
+  const half = cfg.mapSize / 2;
+  const cellLeft = col * cfg.cellSize - half;
+  const cellBottom = row * cfg.cellSize - half;
   const [fx, fz] = SUB_CELL_FRACTIONS[slot % SUB_CELL_FRACTIONS.length];
-  let x = cellLeft + fx * GRID_CELL_SIZE;
-  let z = cellBottom + fz * GRID_CELL_SIZE;
+  let x = cellLeft + fx * cfg.cellSize;
+  let z = cellBottom + fz * cfg.cellSize;
   if (rng) {
-    const jitter = GRID_CELL_SIZE * 0.08;
+    const jitter = cfg.cellSize * 0.08;
     x += rangeFrom(rng, -jitter, jitter);
     z += rangeFrom(rng, -jitter, jitter);
   }
   return [x, z];
 }
 
-export function neighbors4(col: number, row: number): GridCell[] {
+export function neighbors4(
+  cfg: ContinentMapConfig,
+  col: number,
+  row: number,
+): GridCell[] {
   const out: GridCell[] = [];
   for (const [dc, dr] of [
     [0, 1],
@@ -78,7 +91,7 @@ export function neighbors4(col: number, row: number): GridCell[] {
   ] as const) {
     const nc = col + dc;
     const nr = row + dr;
-    if (isInBounds(nc, nr)) out.push({ col: nc, row: nr });
+    if (isInBounds(cfg, nc, nr)) out.push({ col: nc, row: nr });
   }
   return out;
 }
@@ -90,22 +103,22 @@ export function chebyshevDistance(
   return Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
 }
 
-export function allCells(): GridCell[] {
+export function allCells(cfg: ContinentMapConfig): GridCell[] {
   const cells: GridCell[] = [];
-  for (let row = 0; row < GRID_ROWS; row++) {
-    for (let col = 0; col < GRID_COLS; col++) {
+  for (let row = 0; row < cfg.gridRows; row++) {
+    for (let col = 0; col < cfg.gridCols; col++) {
       cells.push({ col, row });
     }
   }
   return cells;
 }
 
-export function buildableCells(): GridCell[] {
-  return allCells().filter((c) => isBuildableCell(c.col, c.row));
+export function buildableCells(cfg: ContinentMapConfig): GridCell[] {
+  return allCells(cfg).filter((c) => isBuildableCell(cfg, c.col, c.row));
 }
 
-export function overflowCells(): GridCell[] {
-  return allCells().filter((c) => !isBuildableCell(c.col, c.row));
+export function overflowCells(cfg: ContinentMapConfig): GridCell[] {
+  return allCells(cfg).filter((c) => !isBuildableCell(cfg, c.col, c.row));
 }
 
 /** All cells in an N×N block anchored at top-left. */
@@ -124,35 +137,38 @@ export function blockCells(
 }
 
 export function isBlockInBounds(
+  cfg: ContinentMapConfig,
   anchorCol: number,
   anchorRow: number,
   span: number,
 ): boolean {
   return (
-    isInBounds(anchorCol, anchorRow) &&
-    isInBounds(anchorCol + span - 1, anchorRow + span - 1)
+    isInBounds(cfg, anchorCol, anchorRow) &&
+    isInBounds(cfg, anchorCol + span - 1, anchorRow + span - 1)
   );
 }
 
 export function isBlockBuildable(
+  cfg: ContinentMapConfig,
   anchorCol: number,
   anchorRow: number,
   span: number,
 ): boolean {
   return blockCells(anchorCol, anchorRow, span).every((c) =>
-    isBuildableCell(c.col, c.row),
+    isBuildableCell(cfg, c.col, c.row),
   );
 }
 
 /** World XZ center of an odd N×N block (anchor = top-left). */
 export function blockCenter(
+  cfg: ContinentMapConfig,
   anchorCol: number,
   anchorRow: number,
   span: number,
 ): [number, number] {
   const centerCol = anchorCol + (span - 1) / 2;
   const centerRow = anchorRow + (span - 1) / 2;
-  return cellCenter(centerCol, centerRow);
+  return cellCenter(cfg, centerCol, centerRow);
 }
 
 export function buildingGridCells(
@@ -164,15 +180,17 @@ export function buildingGridCells(
 }
 
 export function buildingWorldCenter(
+  cfg: ContinentMapConfig,
   anchorCol: number,
   anchorRow: number,
   span: BuildingGridSpan,
 ): [number, number] {
-  return blockCenter(anchorCol, anchorRow, span);
+  return blockCenter(cfg, anchorCol, anchorRow, span);
 }
 
 /** Footprint plus a Chebyshev margin (for BUILDING_MIN_GAP). */
 export function blockCellsWithMargin(
+  cfg: ContinentMapConfig,
   anchorCol: number,
   anchorRow: number,
   span: number,
@@ -185,31 +203,40 @@ export function blockCellsWithMargin(
   const maxRow = anchorRow + span - 1 + margin;
   for (let row = minRow; row <= maxRow; row++) {
     for (let col = minCol; col <= maxCol; col++) {
-      if (isInBounds(col, row)) cells.push({ col, row });
+      if (isInBounds(cfg, col, row)) cells.push({ col, row });
     }
   }
   return cells;
 }
 
-export function allBlockAnchors(span: number): GridCell[] {
+export function allBlockAnchors(
+  cfg: ContinentMapConfig,
+  span: number,
+): GridCell[] {
   const anchors: GridCell[] = [];
-  for (let row = 0; row <= GRID_ROWS - span; row++) {
-    for (let col = 0; col <= GRID_COLS - span; col++) {
+  for (let row = 0; row <= cfg.gridRows - span; row++) {
+    for (let col = 0; col <= cfg.gridCols - span; col++) {
       anchors.push({ col, row });
     }
   }
   return anchors;
 }
 
-export function buildableBlockAnchors(span: number): GridCell[] {
-  return allBlockAnchors(span).filter((a) =>
-    isBlockBuildable(a.col, a.row, span),
+export function buildableBlockAnchors(
+  cfg: ContinentMapConfig,
+  span: number,
+): GridCell[] {
+  return allBlockAnchors(cfg, span).filter((a) =>
+    isBlockBuildable(cfg, a.col, a.row, span),
   );
 }
 
-export function overflowBlockAnchors(span: number): GridCell[] {
-  return allBlockAnchors(span).filter(
-    (a) => !isBlockBuildable(a.col, a.row, span),
+export function overflowBlockAnchors(
+  cfg: ContinentMapConfig,
+  span: number,
+): GridCell[] {
+  return allBlockAnchors(cfg, span).filter(
+    (a) => !isBlockBuildable(cfg, a.col, a.row, span),
   );
 }
 
@@ -231,6 +258,8 @@ export class GridOccupancy {
   private flowerPatches = new Set<string>();
   private plantCounts = new Map<string, number>();
   private buildingDist: Float32Array | null = null;
+
+  constructor(private readonly cfg: ContinentMapConfig) {}
 
   private key(col: number, row: number): string {
     return cellKey(col, row);
@@ -314,7 +343,8 @@ export class GridOccupancy {
   private ensureBuildingDist(): void {
     if (this.buildingDist) return;
 
-    const dist = new Float32Array(GRID_COLS * GRID_ROWS);
+    const { gridCols, gridRows } = this.cfg;
+    const dist = new Float32Array(gridCols * gridRows);
     dist.fill(Infinity);
     const buildingCells = this.getBuildingCells();
     if (buildingCells.length === 0) {
@@ -322,13 +352,13 @@ export class GridOccupancy {
       return;
     }
 
-    for (let row = 0; row < GRID_ROWS; row++) {
-      for (let col = 0; col < GRID_COLS; col++) {
+    for (let row = 0; row < gridRows; row++) {
+      for (let col = 0; col < gridCols; col++) {
         let min = Infinity;
         for (const b of buildingCells) {
           min = Math.min(min, chebyshevDistance({ col, row }, b));
         }
-        dist[row * GRID_COLS + col] = min;
+        dist[row * gridCols + col] = min;
       }
     }
     this.buildingDist = dist;
@@ -336,7 +366,7 @@ export class GridOccupancy {
 
   minChebyshevToBuilding(col: number, row: number): number {
     this.ensureBuildingDist();
-    return this.buildingDist![row * GRID_COLS + col];
+    return this.buildingDist![row * this.cfg.gridCols + col];
   }
 
   minChebyshevToForest(col: number, row: number): number {
@@ -351,20 +381,23 @@ export class GridOccupancy {
 }
 
 /** Line segments for grid overlay: pairs of [x,y,z] points. */
-export function gridLineSegments(y = 0.02): Array<[[number, number, number], [number, number, number]]> {
-  const half = MAP_SIZE / 2;
+export function gridLineSegments(
+  cfg: ContinentMapConfig,
+  y = 0.02,
+): Array<[[number, number, number], [number, number, number]]> {
+  const half = cfg.mapSize / 2;
   const segments: Array<[[number, number, number], [number, number, number]]> = [];
 
-  for (let col = 0; col <= GRID_COLS; col++) {
-    const x = col * GRID_CELL_SIZE - half;
+  for (let col = 0; col <= cfg.gridCols; col++) {
+    const x = col * cfg.cellSize - half;
     segments.push([
       [x, y, -half],
       [x, y, half],
     ]);
   }
 
-  for (let row = 0; row <= GRID_ROWS; row++) {
-    const z = row * GRID_CELL_SIZE - half;
+  for (let row = 0; row <= cfg.gridRows; row++) {
+    const z = row * cfg.cellSize - half;
     segments.push([
       [-half, y, z],
       [half, y, z],
