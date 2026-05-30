@@ -31,7 +31,7 @@ export const DEFAULT_ROAD_DEBUG: RoadDebugSettings = {
   defaultRotationDeg: -90,
   straightDeg: { n: 0, e: 90, s: 0, w: 90 },
   bendDeg: { ne: 270, es: 180, sw: 90, wn: 0 },
-  endDeg: { n: 180, e: 270, s: 0, w: 90 },
+  endDeg: { n: 0, e: 90, s: 180, w: 270 },
   tJunctionDeg: { esw: 90, nsw: 0, new: 270, nes: 180 },
   crossDeg: { n: 0, e: 0, s: 0, w: 0 },
 };

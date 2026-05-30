@@ -246,7 +246,21 @@ export function gridPositionForBuilding(
   return [building.gridCol + half, building.gridRow + half] as const;
 }
 
-function doorConnectionCell(
+/** N=1, E=2, S=4, W=8 — direction from road cell toward building. */
+export function doorFacingMask(dir: DoorDirection): number {
+  switch (dir) {
+    case 'n':
+      return 4; // DIR_S
+    case 'e':
+      return 8; // DIR_W
+    case 's':
+      return 1; // DIR_N
+    case 'w':
+      return 2; // DIR_E
+  }
+}
+
+export function doorConnectionCell(
   building: BuildingPlacement,
   dir: DoorDirection,
 ): GridCell {
@@ -266,14 +280,53 @@ function doorConnectionCell(
   }
 }
 
+/** Trunk terminates one cell outward from the door (away from the building). */
+export function doorApproachCell(
+  building: BuildingPlacement,
+  dir: DoorDirection,
+): GridCell {
+  const door = doorConnectionCell(building, dir);
+  switch (dir) {
+    case 'n':
+      return { col: door.col, row: door.row - 1 };
+    case 'e':
+      return { col: door.col + 1, row: door.row };
+    case 's':
+      return { col: door.col, row: door.row + 1 };
+    case 'w':
+      return { col: door.col - 1, row: door.row };
+  }
+}
+
+export interface BuildingDoorApproach {
+  dir: DoorDirection;
+  door: GridCell;
+  approach: GridCell;
+}
+
+export function buildingDoorApproaches(
+  cfg: ContinentMapConfig,
+  building: BuildingPlacement,
+): BuildingDoorApproach[] {
+  return building.doors
+    .map((dir) => ({
+      dir,
+      door: doorConnectionCell(building, dir),
+      approach: doorApproachCell(building, dir),
+    }))
+    .filter(
+      ({ door, approach }) =>
+        isInBounds(cfg, door.col, door.row) &&
+        isInBounds(cfg, approach.col, approach.row),
+    );
+}
+
 /** Road attachment cells outside door-facing edge midpoints only. */
 export function buildingRoadConnectionCells(
   cfg: ContinentMapConfig,
   building: BuildingPlacement,
 ): GridCell[] {
-  return building.doors
-    .map((dir) => doorConnectionCell(building, dir))
-    .filter((c) => isInBounds(cfg, c.col, c.row));
+  return buildingDoorApproaches(cfg, building).map((d) => d.door);
 }
 
 /**

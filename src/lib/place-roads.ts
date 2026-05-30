@@ -8,12 +8,21 @@ import {
   type GridCell,
 } from './grid';
 import type { ContinentMapConfig } from './map-config';
+import type { DoorDirection } from '../config/building-catalog';
 import {
-  buildingRoadConnectionCells,
+  buildingDoorApproaches,
+  doorConnectionCell,
+  doorFacingMask,
   type BuildingPlacement,
 } from './layout';
 
 const ROAD_BASE_Y = 0.04;
+
+export interface RoadDoorTerminal {
+  col: number;
+  row: number;
+  facingMask: number;
+}
 
 export interface RoadSegment {
   tag: string;
@@ -21,6 +30,13 @@ export interface RoadSegment {
   targetId: string;
   gridCells: GridCell[];
   waypoints: THREE.Vector3[];
+  doorTerminals: RoadDoorTerminal[];
+}
+
+interface TrunkPathResult {
+  trunkCells: GridCell[];
+  sourceDir: DoorDirection;
+  targetDir: DoorDirection;
 }
 
 function buildingCellSet(buildings: BuildingPlacement[]): Set<string> {
@@ -49,70 +65,97 @@ function manhattanPath(
   return path;
 }
 
-function fallbackDirectPath(
+function fallbackTrunkPath(
   cfg: ContinentMapConfig,
   source: BuildingPlacement,
   target: BuildingPlacement,
   buildingCells: Set<string>,
-): GridCell[] {
-  const sources = buildingRoadConnectionCells(cfg, source);
-  const targets = buildingRoadConnectionCells(cfg, target);
-  if (sources.length === 0 || targets.length === 0) return [];
+): TrunkPathResult | null {
+  const sourceDoors = buildingDoorApproaches(cfg, source).filter(
+    ({ approach }) => !buildingCells.has(cellKey(approach.col, approach.row)),
+  );
+  const targetDoors = buildingDoorApproaches(cfg, target).filter(
+    ({ approach }) => !buildingCells.has(cellKey(approach.col, approach.row)),
+  );
+  if (sourceDoors.length === 0 || targetDoors.length === 0) return null;
 
-  let bestA = sources[0];
-  let bestB = targets[0];
+  let bestSource = sourceDoors[0];
+  let bestTarget = targetDoors[0];
   let bestDist = Infinity;
-  for (const a of sources) {
-    for (const b of targets) {
-      const d = Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
+
+  for (const s of sourceDoors) {
+    for (const t of targetDoors) {
+      const d =
+        Math.abs(s.approach.col - t.approach.col) +
+        Math.abs(s.approach.row - t.approach.row);
       if (d < bestDist) {
         bestDist = d;
-        bestA = a;
-        bestB = b;
+        bestSource = s;
+        bestTarget = t;
       }
     }
   }
 
-  const path = manhattanPath(cfg, bestA, bestB);
-  return path.filter((c) => !buildingCells.has(cellKey(c.col, c.row)));
+  const trunkCells = manhattanPath(
+    cfg,
+    bestSource.approach,
+    bestTarget.approach,
+  ).filter((c) => !buildingCells.has(cellKey(c.col, c.row)));
+
+  if (trunkCells.length === 0) return null;
+
+  return {
+    trunkCells,
+    sourceDir: bestSource.dir,
+    targetDir: bestTarget.dir,
+  };
 }
 
-function findRoadPath(
+function findTrunkPath(
   cfg: ContinentMapConfig,
   source: BuildingPlacement,
   target: BuildingPlacement,
   buildings: BuildingPlacement[],
-): GridCell[] {
+): TrunkPathResult | null {
   const buildingCells = buildingCellSet(buildings);
-  const sources = buildingRoadConnectionCells(cfg, source);
-  const targetKeys = new Set(
-    buildingRoadConnectionCells(cfg, target).map((c) => cellKey(c.col, c.row)),
+  const sourceDoors = buildingDoorApproaches(cfg, source).filter(
+    ({ approach }) => !buildingCells.has(cellKey(approach.col, approach.row)),
   );
+  const targetByKey = new Map<string, DoorDirection>();
+  for (const { dir, approach } of buildingDoorApproaches(cfg, target)) {
+    if (buildingCells.has(cellKey(approach.col, approach.row))) continue;
+    targetByKey.set(cellKey(approach.col, approach.row), dir);
+  }
 
-  if (sources.length === 0 || targetKeys.size === 0) return [];
+  if (sourceDoors.length === 0 || targetByKey.size === 0) return null;
 
   const prev = new Map<string, string | null>();
-  const queue: GridCell[] = [];
+  const queue: Array<{ cell: GridCell; sourceDir: DoorDirection }> = [];
 
-  for (const s of sources) {
-    const k = cellKey(s.col, s.row);
+  for (const { dir, approach } of sourceDoors) {
+    const k = cellKey(approach.col, approach.row);
     if (!prev.has(k)) {
       prev.set(k, null);
-      queue.push(s);
+      queue.push({ cell: approach, sourceDir: dir });
     }
   }
 
   let foundTarget: GridCell | null = null;
+  let foundSourceDir: DoorDirection | null = null;
+  let foundTargetDir: DoorDirection | null = null;
   const visited = new Set<string>();
 
   while (queue.length > 0) {
-    const cur = queue.shift()!;
+    const { cell: cur, sourceDir } = queue.shift()!;
     const ck = cellKey(cur.col, cur.row);
     if (visited.has(ck)) continue;
     visited.add(ck);
 
-    if (targetKeys.has(ck)) {
+    const targetDir = targetByKey.get(ck);
+    if (targetDir !== undefined) {
       foundTarget = cur;
+      foundSourceDir = sourceDir;
+      foundTargetDir = targetDir;
       break;
     }
 
@@ -123,23 +166,28 @@ function findRoadPath(
       if (!isInBounds(cfg, n.col, n.row)) continue;
       if (!prev.has(nk)) {
         prev.set(nk, ck);
-        queue.push(n);
+        queue.push({ cell: n, sourceDir });
       }
     }
   }
 
-  if (!foundTarget) {
-    return fallbackDirectPath(cfg, source, target, buildingCells);
+  if (!foundTarget || !foundSourceDir || !foundTargetDir) {
+    return fallbackTrunkPath(cfg, source, target, buildingCells);
   }
 
-  const path: GridCell[] = [];
+  const trunkCells: GridCell[] = [];
   let k: string | null = cellKey(foundTarget.col, foundTarget.row);
   while (k) {
     const [col, row] = k.split(',').map(Number);
-    path.unshift({ col, row });
+    trunkCells.unshift({ col, row });
     k = prev.get(k) ?? null;
   }
-  return path;
+
+  return {
+    trunkCells,
+    sourceDir: foundSourceDir,
+    targetDir: foundTargetDir,
+  };
 }
 
 function cellsToWaypoints(
@@ -162,8 +210,12 @@ export function placeRoadSegment(
   const target = byId.get(edge.targetId);
   if (!source || !target) return null;
 
-  const gridCells = findRoadPath(cfg, source, target, buildings);
-  if (gridCells.length === 0) return null;
+  const trunk = findTrunkPath(cfg, source, target, buildings);
+  if (!trunk || trunk.trunkCells.length === 0) return null;
+
+  const sourceDoor = doorConnectionCell(source, trunk.sourceDir);
+  const targetDoor = doorConnectionCell(target, trunk.targetDir);
+  const gridCells = [sourceDoor, ...trunk.trunkCells, targetDoor];
 
   return {
     tag: edge.tag,
@@ -171,6 +223,18 @@ export function placeRoadSegment(
     targetId: edge.targetId,
     gridCells,
     waypoints: cellsToWaypoints(cfg, gridCells),
+    doorTerminals: [
+      {
+        col: sourceDoor.col,
+        row: sourceDoor.row,
+        facingMask: doorFacingMask(trunk.sourceDir),
+      },
+      {
+        col: targetDoor.col,
+        row: targetDoor.row,
+        facingMask: doorFacingMask(trunk.targetDir),
+      },
+    ],
   };
 }
 

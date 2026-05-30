@@ -106,6 +106,15 @@ function pickTileFromMask(mask: number): {
   return { kind: 'cross', rotationY: 0 };
 }
 
+function neighborCount(mask: number): number {
+  return (
+    (mask & DIR_N ? 1 : 0) +
+    (mask & DIR_E ? 1 : 0) +
+    (mask & DIR_S ? 1 : 0) +
+    (mask & DIR_W ? 1 : 0)
+  );
+}
+
 /** One road GLB per fine grid cell on active tag paths. */
 export function mergeActiveRoadTiles(
   segments: RoadSegment[],
@@ -119,8 +128,15 @@ export function mergeActiveRoadTiles(
 
   const cellKeys = new Set<string>();
   const allPathCells = new Set<string>();
+  const doorFacingByKey = new Map<string, number>();
 
   for (const segment of filtered) {
+    for (const terminal of segment.doorTerminals) {
+      doorFacingByKey.set(
+        cellKey(terminal.col, terminal.row),
+        terminal.facingMask,
+      );
+    }
     for (const cell of segment.gridCells) {
       const key = cellKey(cell.col, cell.row);
       allPathCells.add(key);
@@ -131,11 +147,26 @@ export function mergeActiveRoadTiles(
   const tiles: RoadTileInstance[] = [];
   for (const key of cellKeys) {
     const [col, row] = key.split(',').map(Number);
-    const mask = maskForCell({ col, row }, allPathCells);
-    if (mask === 0) continue;
+    const connectivityMask = maskForCell({ col, row }, allPathCells);
+    if (connectivityMask === 0) continue;
 
-    const { kind, rotationY } = pickTileFromMask(mask);
-    tiles.push({ col, row, kind, mask, rotationY });
+    const doorFacing = doorFacingByKey.get(key);
+    if (
+      doorFacing !== undefined &&
+      neighborCount(connectivityMask) === 1
+    ) {
+      tiles.push({
+        col,
+        row,
+        kind: 'end',
+        mask: doorFacing,
+        rotationY: rotationForEnd(doorFacing),
+      });
+      continue;
+    }
+
+    const { kind, rotationY } = pickTileFromMask(connectivityMask);
+    tiles.push({ col, row, kind, mask: connectivityMask, rotationY });
   }
 
   tiles.sort((a, b) =>
