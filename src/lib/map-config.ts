@@ -25,6 +25,12 @@ export const GRID_CELL_SIZE = MAP_SIZE / GRID_COLS;
 /** Orthographic camera zoom at base size; scales with map so the continent fits the view. */
 export const MAP_CAMERA_ZOOM = Math.round(48 * (MAP_SIZE / 18));
 
+/** Most zoomed-out level at base map size (smaller zoom = wider view). */
+export const MAP_CAMERA_MIN_ZOOM_BASE = 20;
+
+/** maxZoom as a multiple of default cameraZoom. */
+export const MAP_CAMERA_MAX_ZOOM_FACTOR = 2;
+
 /** Inset from map edge in fine cells; buildable area is inner (COLS - 2×INSET)². */
 export const GRID_BUILDABLE_INSET = 3;
 
@@ -116,6 +122,8 @@ export interface ContinentMapConfig {
   cellSize: number;
   buildableInset: number;
   cameraZoom: number;
+  cameraMinZoom: number;
+  cameraMaxZoom: number;
   gridAreaScale: number;
   forestRibbonLength: number;
   forestGroundTrunkClearance: number;
@@ -143,6 +151,13 @@ export function continentMapConfig(noteCount: number): ContinentMapConfig {
   const gridAreaScale = (gridCols * gridRows) / LEGACY_GRID_CELLS;
   const sideScale = mapSize / MAP_SIZE_BASE;
   const areaScale = sideScale * sideScale;
+  const cameraZoom = Math.round(48 * (mapSize / 18));
+  // Inverse to mapSize: larger continents need a lower minZoom to overview the full ground.
+  const cameraMinZoom = Math.max(
+    4,
+    Math.round(MAP_CAMERA_MIN_ZOOM_BASE * MAP_SIZE_BASE / mapSize),
+  );
+  const cameraMaxZoom = Math.round(cameraZoom * MAP_CAMERA_MAX_ZOOM_FACTOR);
 
   return {
     mapSize,
@@ -150,7 +165,9 @@ export function continentMapConfig(noteCount: number): ContinentMapConfig {
     gridRows,
     cellSize,
     buildableInset: GRID_BUILDABLE_INSET,
-    cameraZoom: Math.round(48 * (mapSize / 18)),
+    cameraZoom,
+    cameraMinZoom,
+    cameraMaxZoom,
     gridAreaScale,
     forestRibbonLength: mapSize * 0.72,
     forestGroundTrunkClearance: (mapSize / 10) * 0.12,

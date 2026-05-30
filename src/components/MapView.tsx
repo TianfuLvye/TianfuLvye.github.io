@@ -186,8 +186,8 @@ export default function MapView({ continent, onOpenNote }: Props) {
       <MapControls
         enableRotate={false}
         enableZoom={true}
-        minZoom={Math.round(mapConfig.cameraZoom * 0.25)}
-        maxZoom={Math.round(mapConfig.cameraZoom * 1.5)}
+        minZoom={mapConfig.cameraMinZoom}
+        maxZoom={mapConfig.cameraMaxZoom}
         screenSpacePanning={true}
       />
     </>
