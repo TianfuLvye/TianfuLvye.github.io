@@ -27,7 +27,7 @@ export const DEFAULT_ROAD_DEBUG: RoadDebugSettings = {
   kindOffsetDeg: {
     straight: 0,
     bend: 0,
-    tJunction: 0,
+    tJunction: 90,
     cross: 0,
     end: 180,
   },
