@@ -1,6 +1,6 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { Html, OrthographicCamera, MapControls } from '@react-three/drei';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { getBuilding } from '../config/building-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
@@ -15,32 +15,14 @@ import {
 import { placeDecorations } from '../lib/place-decorations';
 import { compareNotes } from '../lib/note-sort';
 import { useWorld } from '../store';
+import BuildingPickVolume from './BuildingPickVolume';
 import GlTFModel from './GlTFModel';
+import InstancedBuildings from './InstancedBuildings';
 import InstancedDecorations from './InstancedDecorations';
 import InstancedRoadTiles from './InstancedRoadTiles';
 import MapModelPreload from './MapModelPreload';
+import OrthoScaledHtml from './OrthoScaledHtml';
 import RoadWalkBlockedOverlay from './RoadWalkBlockedOverlay';
-
-/**
- * drei Html 在 OrthographicCamera 下用 scale = zoom × distanceFactor。
- * 固定 distanceFactor=6 会在 zoom=48 时得到 scale=288。按 zoom 反比补偿，使屏幕 scale ≈ multiplier。
- */
-function useOrthoHtmlDistanceFactor(multiplier = 1) {
-  const camera = useThree((s) => s.camera);
-  const [factor, setFactor] = useState(() =>
-    camera instanceof THREE.OrthographicCamera
-      ? multiplier / camera.zoom
-      : multiplier,
-  );
-
-  useFrame(() => {
-    if (!(camera instanceof THREE.OrthographicCamera)) return;
-    const next = multiplier / camera.zoom;
-    setFactor((prev) => (Math.abs(prev - next) > 1e-5 ? next : prev));
-  });
-
-  return factor;
-}
 
 interface Props {
   continent: ContinentData;
@@ -85,11 +67,59 @@ export default function MapView({ continent, onOpenNote }: Props) {
   }, [continent.notes, sortKey]);
 
   const isSorted = sortKey !== 'default';
-  const htmlDistanceFactor = useOrthoHtmlDistanceFactor(1);
+  const [pointerHoveredId, setPointerHoveredId] = useState<string | null>(null);
 
   const hoveredNoteIdSet = useMemo(
     () => new Set(hoveredNoteIds),
     [hoveredNoteIds],
+  );
+
+  const emphasizedIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedNoteId) ids.add(selectedNoteId);
+    for (const id of hoveredNoteIds) ids.add(id);
+    if (activeTags.length > 0) {
+      for (const id of tagHighlightIds) ids.add(id);
+    }
+    if (pointerHoveredId) ids.add(pointerHoveredId);
+    return ids;
+  }, [
+    selectedNoteId,
+    hoveredNoteIds,
+    activeTags.length,
+    tagHighlightIds,
+    pointerHoveredId,
+  ]);
+
+  const buildingNoteById = useMemo(() => {
+    const m = new Map<string, NoteData>();
+    for (const b of buildings) m.set(b.note.id, b.note);
+    return m;
+  }, [buildings]);
+
+  const handleBuildingClick = useCallback(
+    (noteId: string) => {
+      const note = buildingNoteById.get(noteId);
+      if (note) selectNote(note);
+    },
+    [buildingNoteById, selectNote],
+  );
+
+  const handleBuildingDoubleClick = useCallback(
+    (noteId: string) => {
+      const note = buildingNoteById.get(noteId);
+      if (note) onOpenNote(note);
+    },
+    [buildingNoteById, onOpenNote],
+  );
+
+  const handleBuildingPointerHover = useCallback(
+    (noteId: string, hover: boolean) => {
+      setPointerHoveredId((prev) =>
+        hover ? noteId : prev === noteId ? null : prev,
+      );
+    },
+    [],
   );
 
   return (
@@ -160,22 +190,32 @@ export default function MapView({ continent, onOpenNote }: Props) {
         cfg={mapConfig}
       />
 
-      {/* 建筑物 */}
+      {!isSorted && (
+        <InstancedBuildings
+          buildings={buildings}
+          hiddenIds={emphasizedIds}
+        />
+      )}
+
+      {/* 建筑物：交互、标签、高亮 / sort 模式逐座渲染 */}
       {buildings.map((b) => (
         <Building
           key={b.note.id}
+          noteId={b.note.id}
           placement={b}
           isHovered={hoveredNoteIdSet.has(b.note.id)}
           isSelected={selectedNoteId === b.note.id}
           isTagHighlighted={
             activeTags.length > 0 && tagHighlightIds.has(b.note.id)
           }
+          isPointerHovered={pointerHoveredId === b.note.id}
+          showVisual={isSorted || emphasizedIds.has(b.note.id)}
           isFloating={isSorted}
           floatRank={sortRank.get(b.note.id) ?? 0}
           totalCount={continent.notes.length}
-          htmlDistanceFactor={htmlDistanceFactor}
-          onClick={() => selectNote(b.note)}
-          onDoubleClick={() => onOpenNote(b.note)}
+          onPointerHover={handleBuildingPointerHover}
+          onClick={handleBuildingClick}
+          onDoubleClick={handleBuildingDoubleClick}
         />
       ))}
 
@@ -193,32 +233,37 @@ export default function MapView({ continent, onOpenNote }: Props) {
 /* ---------- Building ---------- */
 
 interface BuildingProps {
+  noteId: string;
   placement: BuildingPlacement;
   isHovered: boolean;
   isSelected: boolean;
   isTagHighlighted: boolean;
+  isPointerHovered: boolean;
+  showVisual: boolean;
   isFloating: boolean;
   floatRank: number;
   totalCount: number;
-  htmlDistanceFactor: number;
-  onClick: () => void;
-  onDoubleClick: () => void;
+  onPointerHover: (noteId: string, hover: boolean) => void;
+  onClick: (noteId: string) => void;
+  onDoubleClick: (noteId: string) => void;
 }
 
 const Building = memo(function Building({
+  noteId,
   placement,
   isHovered,
   isSelected,
   isTagHighlighted,
+  isPointerHovered,
+  showVisual,
   isFloating,
   floatRank,
   totalCount,
-  htmlDistanceFactor,
+  onPointerHover,
   onClick,
   onDoubleClick,
 }: BuildingProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const [hover, setHover] = useState(false);
   const [motionActive, setMotionActive] = useState(isFloating);
 
   useEffect(() => {
@@ -241,11 +286,36 @@ const Building = memo(function Building({
     return 1.6 + norm * 2.2;
   }, [isFloating, floatRank, totalCount]);
 
-  const emphasize = hover || isHovered || isSelected || isTagHighlighted;
+  const emphasize =
+    isPointerHovered || isHovered || isSelected || isTagHighlighted;
   const buildingDef = getBuilding(placement.modelId);
   const labelLift = placement.footprintExtent * 0.4 + 0.35;
 
   if (!buildingDef) return null;
+
+  const pickHandlers = useMemo(
+    () => ({
+      onClick: (e: { stopPropagation: () => void }) => {
+        e.stopPropagation();
+        onClick(noteId);
+      },
+      onDoubleClick: (e: { stopPropagation: () => void }) => {
+        e.stopPropagation();
+        onDoubleClick(noteId);
+      },
+      onPointerOver: (e: { stopPropagation: () => void }) => {
+        e.stopPropagation();
+        onPointerHover(noteId, true);
+        document.body.style.cursor = 'pointer';
+      },
+      onPointerOut: (e: { stopPropagation: () => void }) => {
+        e.stopPropagation();
+        onPointerHover(noteId, false);
+        document.body.style.cursor = '';
+      },
+    }),
+    [noteId, onClick, onDoubleClick, onPointerHover],
+  );
 
   return (
     <group
@@ -261,7 +331,8 @@ const Building = memo(function Building({
           onSettled={() => setMotionActive(false)}
         />
       )}
-      <GlTFModel
+      {showVisual ? (
+        <GlTFModel
           url={buildingDef.url}
           footprint={placement.footprintExtent}
           scale={placement.scale}
@@ -269,25 +340,18 @@ const Building = memo(function Building({
           yOffset={buildingDef.yOffset}
           emphasized={emphasize}
           interactive
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            onDoubleClick();
-          }}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            setHover(true);
-            document.body.style.cursor = 'pointer';
-          }}
-          onPointerOut={(e) => {
-            e.stopPropagation();
-            setHover(false);
-            document.body.style.cursor = '';
-          }}
+          {...pickHandlers}
         />
+      ) : (
+        <BuildingPickVolume
+          url={buildingDef.url}
+          footprint={placement.footprintExtent}
+          scale={placement.scale}
+          uniformScale
+          yOffset={buildingDef.yOffset}
+          {...pickHandlers}
+        />
+      )}
 
       {/* sort_by 模式下，漂浮块下方的 pattern 浮空陆地 */}
       {isFloating && (
@@ -296,26 +360,24 @@ const Building = memo(function Building({
 
       {/* sort_by 模式下，漂浮的牌子 */}
       {isFloating && (
-        <Html
+        <OrthoScaledHtml
           position={[0, -0.7, 0]}
           center
-          distanceFactor={htmlDistanceFactor}
           style={{ pointerEvents: 'none' }}
         >
           <div className="island-sign">{placement.note.title}</div>
-        </Html>
+        </OrthoScaledHtml>
       )}
 
       {/* 普通悬停 / 选中：浮出标签 */}
       {emphasize && !isFloating && (
-        <Html
+        <OrthoScaledHtml
           position={[0, labelLift, 0]}
           center
-          distanceFactor={htmlDistanceFactor}
           style={{ pointerEvents: 'none' }}
         >
           <div className="building-label">{placement.note.title}</div>
-        </Html>
+        </OrthoScaledHtml>
       )}
     </group>
   );

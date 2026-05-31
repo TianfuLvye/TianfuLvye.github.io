@@ -24,6 +24,8 @@ export interface GlTFModelProps {
   fitExtent?: DecorFitExtent;
   scaleMin?: number;
   scaleMax?: number;
+  /** When false, only the pick volume is rendered (instanced visual elsewhere). */
+  renderModel?: boolean;
   /** Single invisible pick volume; visual meshes do not raycast. */
   interactive?: boolean;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
@@ -97,6 +99,22 @@ function disableVisualRaycast(root: THREE.Object3D) {
   });
 }
 
+function disposeClonedMaterials(root: THREE.Object3D) {
+  const disposed = new Set<THREE.Material>();
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const mats = Array.isArray(child.material)
+      ? child.material
+      : [child.material];
+    for (const mat of mats) {
+      if (mat && !disposed.has(mat)) {
+        disposed.add(mat);
+        mat.dispose();
+      }
+    }
+  });
+}
+
 export default function GlTFModel({
   url,
   footprint,
@@ -112,6 +130,7 @@ export default function GlTFModel({
   fitExtent = 'xz',
   scaleMin,
   scaleMax,
+  renderModel = true,
   interactive = false,
   onClick,
   onDoubleClick,
@@ -158,12 +177,25 @@ export default function GlTFModel({
   }, [clone, interactive]);
 
   useEffect(() => {
+    if (!cloneMaterials) return;
+    return () => disposeClonedMaterials(clone);
+  }, [clone, cloneMaterials]);
+
+  useEffect(() => {
+    if (!renderModel || !cloneMaterials) return;
     if (tintColor) {
       applyTint(clone, tintColor, emissiveIntensity);
     } else {
       applyEmissive(clone, emphasized);
     }
-  }, [clone, emphasized, tintColor, emissiveIntensity]);
+  }, [
+    clone,
+    emphasized,
+    tintColor,
+    emissiveIntensity,
+    renderModel,
+    cloneMaterials,
+  ]);
 
   const [sx, sy, sz] = layout.modelScale;
   const pickCenterY = layout.position[1] + layout.height / 2;
@@ -196,9 +228,11 @@ export default function GlTFModel({
 
   return (
     <group>
-      <group position={layout.position} scale={layout.modelScale}>
-        <primitive object={clone} />
-      </group>
+      {renderModel && (
+        <group position={layout.position} scale={layout.modelScale}>
+          <primitive object={clone} />
+        </group>
+      )}
       {interactive && (
         <mesh position={[0, pickCenterY, 0]} {...pickHandlers}>
           <boxGeometry args={pickSize} />

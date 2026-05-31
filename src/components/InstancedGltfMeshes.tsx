@@ -9,6 +9,8 @@ import {
 } from '../lib/gltf-layout';
 
 export interface GltfInstanceTransform {
+  /** Stable id for per-instance hide (e.g. note id). */
+  id?: string;
   position: [number, number, number];
   rotationY: number;
   /** Uniform multiplier on top of normalized layout scale. */
@@ -24,6 +26,10 @@ interface MeshPart {
 interface Props extends GltfLayoutParams {
   url: string;
   instances: GltfInstanceTransform[];
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+  /** Instances with matching id are collapsed (scale 0) without rebuilding groups. */
+  hiddenIds?: ReadonlySet<string>;
 }
 
 function collectMeshParts(scene: THREE.Object3D): MeshPart[] {
@@ -54,10 +60,16 @@ function InstancedMeshPart({
   part,
   instances,
   layoutMatrix,
+  castShadow = false,
+  receiveShadow = false,
+  hiddenIds,
 }: {
   part: MeshPart;
   instances: GltfInstanceTransform[];
   layoutMatrix: THREE.Matrix4;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
+  hiddenIds?: ReadonlySet<string>;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const temp = useMemo(
@@ -79,6 +91,11 @@ function InstancedMeshPart({
 
     for (let i = 0; i < instances.length; i++) {
       const inst = instances[i];
+      if (inst.id && hiddenIds?.has(inst.id)) {
+        temp.matrix.makeScale(0, 0, 0);
+        mesh.setMatrixAt(i, temp.matrix);
+        continue;
+      }
       const s = inst.scale ?? 1;
       temp.pos.set(inst.position[0], inst.position[1], inst.position[2]);
       temp.quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), inst.rotationY);
@@ -90,7 +107,7 @@ function InstancedMeshPart({
 
     mesh.instanceMatrix.needsUpdate = true;
     mesh.count = instances.length;
-  }, [instances, layoutMatrix, part, temp]);
+  }, [instances, layoutMatrix, part, temp, hiddenIds]);
 
   if (instances.length === 0) return null;
 
@@ -98,8 +115,8 @@ function InstancedMeshPart({
     <instancedMesh
       ref={meshRef}
       args={[part.geometry, part.material, instances.length]}
-      castShadow={false}
-      receiveShadow={false}
+      castShadow={castShadow}
+      receiveShadow={receiveShadow}
       frustumCulled={false}
     />
   );
@@ -115,6 +132,9 @@ export default function InstancedGltfMeshes({
   fitExtent = 'xz' as DecorFitExtent,
   scaleMin,
   scaleMax,
+  castShadow = false,
+  receiveShadow = false,
+  hiddenIds,
 }: Props) {
   const { scene } = useGLTF(url);
 
@@ -164,6 +184,9 @@ export default function InstancedGltfMeshes({
           part={part}
           instances={instances}
           layoutMatrix={layoutMatrix}
+          castShadow={castShadow}
+          receiveShadow={receiveShadow}
+          hiddenIds={hiddenIds}
         />
       ))}
     </group>
