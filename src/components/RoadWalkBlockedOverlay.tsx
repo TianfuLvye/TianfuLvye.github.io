@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { cellCenter, parseCellKey } from '../lib/grid';
 import type { ContinentMapConfig } from '../lib/map-config';
-import type { BuildingPlacement } from '../lib/layout';
+import type { BuildingPlacement } from '../lib/building-placement';
 import { computeRoadWalkBlockedLayers } from '../lib/place-roads';
 
 interface Props {

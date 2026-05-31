@@ -10,7 +10,8 @@
     "predev": "node scripts/sync-note-attachments.mjs",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "path-parity": "node scripts/path-parity.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^4.2.0",

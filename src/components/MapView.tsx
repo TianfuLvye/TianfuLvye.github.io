@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { getBuilding } from '../config/building-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
 import { gridLineSegments } from '../lib/grid';
-import type { BuildingPlacement } from '../lib/layout';
+import type { BuildingPlacement } from '../lib/building-placement';
 import { placeContinentLayout } from '../lib/place-continent-layout';
 import {
   continentMapConfig,

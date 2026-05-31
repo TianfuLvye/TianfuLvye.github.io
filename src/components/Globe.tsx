@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import type { WorldTree } from '../lib/types';
-import { placeContinents } from '../lib/layout';
+import { placeContinents } from '../lib/globe-layout';
 import { useWorld } from '../store';
 
 const GLOBE_RADIUS = 2.4;

@@ -2,11 +2,8 @@ import {
   buildTagGraph,
   flattenTagEdges,
 } from './build-tag-graph';
-import {
-  gridPositionForBuilding,
-  placeBuildings,
-  type BuildingPlacement,
-} from './layout';
+import { gridPositionForBuilding, type BuildingPlacement } from './building-placement';
+import { placeBuildings } from './place-buildings';
 import type { ContinentMapConfig } from './map-config';
 import { placeTagRoads, type RoadSegment } from './place-roads';
 import type { NoteData } from './types';

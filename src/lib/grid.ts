@@ -230,8 +230,7 @@ export function cellKey(col: number, row: number): string {
 }
 
 /**
- * cellKey 的逆操作。用 limit=2 的 split,因此既能解析二段的 "col,row",
- * 也能从三段的 A* 状态键 "col,row,dir" 中取出格坐标。
+ * cellKey 的逆操作 — 解析 "col,row" 网格键。
  */
 export function parseCellKey(key: string): GridCell {
   const [col, row] = key.split(',', 2).map(Number);

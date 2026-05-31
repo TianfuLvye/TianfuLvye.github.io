@@ -5,7 +5,6 @@ import {
   cellKey,
   isInBounds,
   neighbors4,
-  parseCellKey,
   type GridCell,
 } from './grid';
 import {
@@ -20,8 +19,9 @@ import {
   buildingDoorApproaches,
   doorConnectionCell,
   doorFacingMask,
+  type BuildingDoorApproach,
   type BuildingPlacement,
-} from './layout';
+} from './building-placement';
 
 const ROAD_BASE_Y = 0.04;
 
@@ -105,6 +105,168 @@ function manhattanHeuristic(cell: GridCell, targets: GridCell[]): number {
 
 function astarStateKey(col: number, row: number, incomingDir: number): string {
   return `${col},${row},${incomingDir}`;
+}
+
+function parseAStarStateKey(key: string): {
+  col: number;
+  row: number;
+  incomingDir: number;
+} {
+  const [col, row, incomingDir] = key.split(',').map(Number);
+  return { col, row, incomingDir };
+}
+
+interface TrunkAStarGoal {
+  g: number;
+  cell: GridCell;
+  incomingDir: number;
+  sourceDir: DoorDirection;
+  targetDir: DoorDirection;
+}
+
+interface TrunkPathEndpoints {
+  sourceDoors: BuildingDoorApproach[];
+  targetByKey: Map<string, DoorDirection>;
+  targetApproaches: GridCell[];
+}
+
+function prepareTrunkPathEndpoints(
+  cfg: ContinentMapConfig,
+  source: BuildingPlacement,
+  target: BuildingPlacement,
+  walkBlocked: Set<string>,
+): TrunkPathEndpoints {
+  const sourceDoors = buildingDoorApproaches(cfg, source).filter(
+    ({ approach }) => !walkBlocked.has(cellKey(approach.col, approach.row)),
+  );
+  const targetByKey = new Map<string, DoorDirection>();
+  const targetApproaches: GridCell[] = [];
+  for (const { dir, approach } of buildingDoorApproaches(cfg, target)) {
+    if (walkBlocked.has(cellKey(approach.col, approach.row))) continue;
+    targetByKey.set(cellKey(approach.col, approach.row), dir);
+    targetApproaches.push(approach);
+  }
+  return { sourceDoors, targetByKey, targetApproaches };
+}
+
+function initTrunkAStarSources(
+  sourceDoors: BuildingDoorApproach[],
+  targetApproaches: GridCell[],
+): {
+  gScore: Map<string, number>;
+  prev: Map<string, string | null>;
+  heap: MinHeap<AStarHeapEntry>;
+} {
+  const gScore = new Map<string, number>();
+  const prev = new Map<string, string | null>();
+  const heap = new MinHeap<AStarHeapEntry>((e) => e.f);
+
+  for (const { dir, door, approach } of sourceDoors) {
+    const incoming = incomingDirBetween(door, approach);
+    const sk = astarStateKey(approach.col, approach.row, incoming);
+    gScore.set(sk, 0);
+    prev.set(sk, null);
+    heap.push({
+      f: manhattanHeuristic(approach, targetApproaches),
+      g: 0,
+      col: approach.col,
+      row: approach.row,
+      incomingDir: incoming,
+      sourceDir: dir,
+    });
+  }
+
+  return { gScore, prev, heap };
+}
+
+function runTrunkAStarSearch(
+  cfg: ContinentMapConfig,
+  walkBlocked: Set<string>,
+  targetByKey: Map<string, DoorDirection>,
+  targetApproaches: GridCell[],
+  existingRoadCells: Set<string>,
+  gScore: Map<string, number>,
+  prev: Map<string, string | null>,
+  heap: MinHeap<AStarHeapEntry>,
+): TrunkAStarGoal | null {
+  let bestGoal: TrunkAStarGoal | null = null;
+
+  while (heap.size > 0) {
+    const node = heap.pop()!;
+    const ck = cellKey(node.col, node.row);
+    const stateKey = astarStateKey(node.col, node.row, node.incomingDir);
+
+    const recordedG = gScore.get(stateKey);
+    if (recordedG === undefined || node.g > recordedG) continue;
+
+    if (bestGoal && node.f >= bestGoal.g) break;
+
+    const targetDir = targetByKey.get(ck);
+    if (targetDir !== undefined) {
+      if (!bestGoal || node.g < bestGoal.g) {
+        bestGoal = {
+          g: node.g,
+          cell: { col: node.col, row: node.row },
+          incomingDir: node.incomingDir,
+          sourceDir: node.sourceDir,
+          targetDir,
+        };
+      }
+      continue;
+    }
+
+    for (let dirIdx = 0; dirIdx < NEIGHBOR4_OFFSETS.length; dirIdx++) {
+      const { dc, dr } = NEIGHBOR4_OFFSETS[dirIdx];
+      const nc = node.col + dc;
+      const nr = node.row + dr;
+      if (!isInBounds(cfg, nc, nr)) continue;
+
+      const nk = cellKey(nc, nr);
+      if (walkBlocked.has(nk)) continue;
+
+      const turnCost =
+        node.incomingDir >= 0 && dirIdx !== node.incomingDir
+          ? TURN_PENALTY
+          : 0;
+      const tentativeG =
+        node.g + stepCostForCell(nk, existingRoadCells) + turnCost;
+      const nextState = astarStateKey(nc, nr, dirIdx);
+
+      const prevG = gScore.get(nextState);
+      if (prevG !== undefined && tentativeG >= prevG) continue;
+
+      gScore.set(nextState, tentativeG);
+      prev.set(nextState, stateKey);
+      heap.push({
+        f: tentativeG + manhattanHeuristic({ col: nc, row: nr }, targetApproaches),
+        g: tentativeG,
+        col: nc,
+        row: nr,
+        incomingDir: dirIdx,
+        sourceDir: node.sourceDir,
+      });
+    }
+  }
+
+  return bestGoal;
+}
+
+function reconstructTrunkPath(
+  bestGoal: TrunkAStarGoal,
+  prev: Map<string, string | null>,
+): GridCell[] {
+  const trunkCells: GridCell[] = [];
+  let k: string | null = astarStateKey(
+    bestGoal.cell.col,
+    bestGoal.cell.row,
+    bestGoal.incomingDir,
+  );
+  while (k) {
+    const { col, row } = parseAStarStateKey(k);
+    trunkCells.unshift({ col, row });
+    k = prev.get(k) ?? null;
+  }
+  return trunkCells;
 }
 
 /**
@@ -210,7 +372,8 @@ function fallbackTrunkPath(
   };
 }
 
-function findTrunkPath(
+/** Exported for path-parity regression script. */
+export function findTrunkPath(
   cfg: ContinentMapConfig,
   source: BuildingPlacement,
   target: BuildingPlacement,
@@ -218,121 +381,32 @@ function findTrunkPath(
   existingRoadCells: Set<string>,
 ): TrunkPathResult | null {
   const walkBlocked = trunkWalkBlockedCells(cfg, buildings);
-  const sourceDoors = buildingDoorApproaches(cfg, source).filter(
-    ({ approach }) => !walkBlocked.has(cellKey(approach.col, approach.row)),
-  );
-  const targetByKey = new Map<string, DoorDirection>();
-  const targetApproaches: GridCell[] = [];
-  for (const { dir, approach } of buildingDoorApproaches(cfg, target)) {
-    if (walkBlocked.has(cellKey(approach.col, approach.row))) continue;
-    targetByKey.set(cellKey(approach.col, approach.row), dir);
-    targetApproaches.push(approach);
-  }
+  const { sourceDoors, targetByKey, targetApproaches } =
+    prepareTrunkPathEndpoints(cfg, source, target, walkBlocked);
 
   if (sourceDoors.length === 0 || targetByKey.size === 0) return null;
 
-  const gScore = new Map<string, number>();
-  const prev = new Map<string, string | null>();
-  const heap = new MinHeap<AStarHeapEntry>((e) => e.f);
-
-  for (const { dir, door, approach } of sourceDoors) {
-    const incoming = incomingDirBetween(door, approach);
-    const sk = astarStateKey(approach.col, approach.row, incoming);
-    gScore.set(sk, 0);
-    prev.set(sk, null);
-    heap.push({
-      f: manhattanHeuristic(approach, targetApproaches),
-      g: 0,
-      col: approach.col,
-      row: approach.row,
-      incomingDir: incoming,
-      sourceDir: dir,
-    });
-  }
-
-  let bestGoal: {
-    g: number;
-    cell: GridCell;
-    incomingDir: number;
-    sourceDir: DoorDirection;
-    targetDir: DoorDirection;
-  } | null = null;
-
-  while (heap.size > 0) {
-    const node = heap.pop()!;
-    const ck = cellKey(node.col, node.row);
-    const stateKey = astarStateKey(node.col, node.row, node.incomingDir);
-
-    const recordedG = gScore.get(stateKey);
-    if (recordedG === undefined || node.g > recordedG) continue;
-
-    if (bestGoal && node.f >= bestGoal.g) break;
-
-    const targetDir = targetByKey.get(ck);
-    if (targetDir !== undefined) {
-      if (!bestGoal || node.g < bestGoal.g) {
-        bestGoal = {
-          g: node.g,
-          cell: { col: node.col, row: node.row },
-          incomingDir: node.incomingDir,
-          sourceDir: node.sourceDir,
-          targetDir,
-        };
-      }
-      continue;
-    }
-
-    for (let dirIdx = 0; dirIdx < NEIGHBOR4_OFFSETS.length; dirIdx++) {
-      const { dc, dr } = NEIGHBOR4_OFFSETS[dirIdx];
-      const nc = node.col + dc;
-      const nr = node.row + dr;
-      if (!isInBounds(cfg, nc, nr)) continue;
-
-      const nk = cellKey(nc, nr);
-      if (walkBlocked.has(nk)) continue;
-
-      const turnCost =
-        node.incomingDir >= 0 && dirIdx !== node.incomingDir
-          ? TURN_PENALTY
-          : 0;
-      const tentativeG =
-        node.g + stepCostForCell(nk, existingRoadCells) + turnCost;
-      const nextState = astarStateKey(nc, nr, dirIdx);
-
-      const prevG = gScore.get(nextState);
-      if (prevG !== undefined && tentativeG >= prevG) continue;
-
-      gScore.set(nextState, tentativeG);
-      prev.set(nextState, stateKey);
-      heap.push({
-        f: tentativeG + manhattanHeuristic({ col: nc, row: nr }, targetApproaches),
-        g: tentativeG,
-        col: nc,
-        row: nr,
-        incomingDir: dirIdx,
-        sourceDir: node.sourceDir,
-      });
-    }
-  }
+  const { gScore, prev, heap } = initTrunkAStarSources(
+    sourceDoors,
+    targetApproaches,
+  );
+  const bestGoal = runTrunkAStarSearch(
+    cfg,
+    walkBlocked,
+    targetByKey,
+    targetApproaches,
+    existingRoadCells,
+    gScore,
+    prev,
+    heap,
+  );
 
   if (!bestGoal) {
     return fallbackTrunkPath(cfg, source, target, walkBlocked);
   }
 
-  const trunkCells: GridCell[] = [];
-  let k: string | null = astarStateKey(
-    bestGoal.cell.col,
-    bestGoal.cell.row,
-    bestGoal.incomingDir,
-  );
-  while (k) {
-    const { col, row } = parseCellKey(k);
-    trunkCells.unshift({ col, row });
-    k = prev.get(k) ?? null;
-  }
-
   return {
-    trunkCells,
+    trunkCells: reconstructTrunkPath(bestGoal, prev),
     sourceDir: bestGoal.sourceDir,
     targetDir: bestGoal.targetDir,
   };

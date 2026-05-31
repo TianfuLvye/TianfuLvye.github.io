@@ -3,7 +3,7 @@ import { buildingUrl, enabledBuildings } from '../config/building-catalog';
 import { enabledDecorations } from '../config/decoration-catalog';
 import { enabledRoadTiles } from '../config/road-catalog';
 import { preloadGltfUrls } from './GlTFModel';
-import type { BuildingPlacement } from '../lib/layout';
+import type { BuildingPlacement } from '../lib/building-placement';
 
 interface Props {
   buildings: BuildingPlacement[];
