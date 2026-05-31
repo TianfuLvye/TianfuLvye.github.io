@@ -119,8 +119,6 @@ export interface BuildingPlacement {
   scale: [number, number, number];
   /** 颜色（HSL hue） */
   hue: number;
-  /** 屋顶倾斜 (0 = 平顶，1 = 尖屋顶) */
-  roof: number;
   /** 围绕 Y 轴的旋转 */
   rotation: number;
   /** GLB 建筑模型 id */
@@ -189,21 +187,15 @@ export function footprintExtentForTier(
   }
 }
 
-/** Approximate horizontal radius from building center to footprint edge. */
-export function buildingRadius(building: BuildingPlacement): number {
-  return building.footprintExtent * 0.5;
-}
-
 function blockIsFree(
   anchor: GridCell,
   span: BuildingGridSpan,
   taken: Set<string>,
-  blockedCells: Set<string>,
 ): boolean {
   const cells = blockCells(anchor.col, anchor.row, span);
   return cells.every((c) => {
     const k = cellKey(c.col, c.row);
-    return !taken.has(k) && !blockedCells.has(k);
+    return !taken.has(k);
   });
 }
 
@@ -229,10 +221,9 @@ function nextFreeAnchor(
   startIdx: number,
   span: BuildingGridSpan,
   taken: Set<string>,
-  blockedCells: Set<string>,
 ): { anchor: GridCell; nextIdx: number } | null {
   for (let i = startIdx; i < anchors.length; i++) {
-    if (blockIsFree(anchors[i], span, taken, blockedCells)) {
+    if (blockIsFree(anchors[i], span, taken)) {
       return { anchor: anchors[i], nextIdx: i + 1 };
     }
   }
@@ -310,14 +301,6 @@ export function buildingDoorApproaches(
     );
 }
 
-/** Road attachment cells outside door-facing edge midpoints only. */
-export function buildingRoadConnectionCells(
-  cfg: ContinentMapConfig,
-  building: BuildingPlacement,
-): GridCell[] {
-  return buildingDoorApproaches(cfg, building).map((d) => d.door);
-}
-
 /**
  * Place notes on the fine grid: small 3×3, medium 5×5, large 7×7,
  * with BUILDING_MIN_GAP empty cells between footprints.
@@ -325,9 +308,7 @@ export function buildingRoadConnectionCells(
 export function placeBuildings(
   notes: NoteData[],
   cfg: ContinentMapConfig,
-  options?: { blockedCells?: Set<string> },
 ): BuildingPlacement[] {
-  const blockedCells = options?.blockedCells ?? new Set<string>();
   const continentId = notes[0]?.continentId ?? 'unknown';
   const cellRng = rngFor(`building-cells:${continentId}`);
 
@@ -367,7 +348,7 @@ export function placeBuildings(
     const anchors = anchorsBySpan.get(gridSpan)!;
     let idx = anchorIdx.get(gridSpan)!;
 
-    const slot = nextFreeAnchor(anchors, idx, gridSpan, taken, blockedCells);
+    const slot = nextFreeAnchor(anchors, idx, gridSpan, taken);
 
     if (!slot) {
       console.warn(
@@ -395,7 +376,6 @@ export function placeBuildings(
       footprintExtent: footprintExtentForTier(sizeTier, rng, cfg),
       scale: [1, 1, 1],
       hue: rng() * 360,
-      roof: rng(),
       rotation: GRID_BUILDING_ROTATION,
       modelId,
       doors: doorsForBuildingId(modelId),

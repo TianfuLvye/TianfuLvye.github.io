@@ -60,7 +60,3 @@ export function pickBuildingModel(note: NoteData): string {
   const rng = rngFor(`building-model:${note.id}`);
   return weightedPick(pool, rng).id;
 }
-
-export function pickBuildingModelsForNotes(notes: NoteData[]): string[] {
-  return notes.map((n) => pickBuildingModel(n));
-}

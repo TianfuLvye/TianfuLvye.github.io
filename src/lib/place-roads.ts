@@ -12,7 +12,6 @@ import {
   NEIGHBOR4_OFFSETS,
   dirFromDelta,
   dirIndex,
-  opposite,
 } from './direction';
 import { MinHeap } from './structures/min-heap';
 import type { ContinentMapConfig } from './map-config';
@@ -85,11 +84,6 @@ function buildingCellSet(buildings: BuildingPlacement[]): Set<string> {
 function incomingDirBetween(from: GridCell, to: GridCell): number {
   const dir = dirFromDelta(to.col - from.col, to.row - from.row);
   return dir ? dirIndex(dir) : -1;
-}
-
-/** Entering a building through `dir` means travelling toward the opposite side. */
-function incomingDirForDoor(dir: DoorDirection): number {
-  return dirIndex(opposite(dir));
 }
 
 function stepCostForCell(

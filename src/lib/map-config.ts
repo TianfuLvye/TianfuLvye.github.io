@@ -187,23 +187,8 @@ export function decorMaxInstances(cfg: ContinentMapConfig): number {
   return Math.round(DECOR_MAX_INSTANCES * cfg.areaScale);
 }
 
-/** Max horizontal extent for a small building on a 3×3 plot (base size). */
-export const BUILDING_SMALL_FOOTPRINT_MAX =
-  BUILDING_SPAN_SMALL * GRID_CELL_SIZE * 0.88;
-
-/** Max horizontal extent for medium buildings on a 5×5 plot (base size). */
-export const BUILDING_MEDIUM_FOOTPRINT_MAX =
-  BUILDING_SPAN_MEDIUM * GRID_CELL_SIZE * 0.88;
-
-/** Max horizontal extent for large buildings on a 7×7 plot (base size). */
-export const BUILDING_LARGE_FOOTPRINT_MAX =
-  BUILDING_SPAN_LARGE * GRID_CELL_SIZE * 0.88;
-
 /** One road GLB tile spans one fine grid cell (base size). */
 export const ROAD_TILE_FOOTPRINT = GRID_CELL_SIZE;
 
 /** Vertical offset after grounding road tiles on Y. */
 export const ROAD_TILE_Y_OFFSET = 0.04;
-
-/** Clockwise 90° correction applied to all road GLB tiles. */
-export const ROAD_TILE_DEFAULT_ROTATION = -Math.PI / 2;

@@ -14,7 +14,6 @@ import type { ContinentMapConfig } from './map-config';
 export class GridOccupancy {
   private buildings = new Map<string, string>();
   private forests = new Map<string, number>();
-  private forestSeeds = new Map<number, GridCell>();
   private flowerPatches = new Set<string>();
   private plantCounts = new Map<string, number>();
   private buildingDist: Float32Array | null = null;
@@ -41,16 +40,8 @@ export class GridOccupancy {
     return this.buildings.has(cellKey(col, row));
   }
 
-  setForest(
-    col: number,
-    row: number,
-    forestId: number,
-    isSeed = false,
-  ): void {
+  setForest(col: number, row: number, forestId: number): void {
     this.forests.set(cellKey(col, row), forestId);
-    if (isSeed || !this.forestSeeds.has(forestId)) {
-      this.forestSeeds.set(forestId, { col, row });
-    }
   }
 
   hasForest(col: number, row: number): boolean {
@@ -60,18 +51,6 @@ export class GridOccupancy {
   getBuildingCells(): GridCell[] {
     const out: GridCell[] = [];
     for (const k of this.buildings.keys()) {
-      out.push(parseCellKey(k));
-    }
-    return out;
-  }
-
-  getForestSeedCells(): GridCell[] {
-    return [...this.forestSeeds.values()];
-  }
-
-  allForestCells(): GridCell[] {
-    const out: GridCell[] = [];
-    for (const k of this.forests.keys()) {
       out.push(parseCellKey(k));
     }
     return out;
@@ -125,15 +104,5 @@ export class GridOccupancy {
   minChebyshevToBuilding(col: number, row: number): number {
     this.ensureBuildingDist();
     return this.buildingDist![row * this.cfg.gridCols + col];
-  }
-
-  minChebyshevToForest(col: number, row: number): number {
-    const seeds = this.getForestSeedCells();
-    if (seeds.length === 0) return Infinity;
-    let min = Infinity;
-    for (const s of seeds) {
-      min = Math.min(min, chebyshevDistance({ col, row }, s));
-    }
-    return min;
   }
 }

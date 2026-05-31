@@ -17,7 +17,6 @@ export interface RoadTileInstance {
   kind: RoadTileKind;
   /** Connection bitmask (N=1, E=2, S=4, W=8). */
   mask: number;
-  rotationY: number;
 }
 
 function directionBetween(a: GridCell, b: GridCell): number {
@@ -40,64 +39,19 @@ function isOppositePair(mask: number): boolean {
   return mask === (DIR_N | DIR_S) || mask === (DIR_E | DIR_W);
 }
 
-function rotationForStraight(mask: number): number {
-  if (mask === (DIR_E | DIR_W)) return Math.PI / 2;
-  return 0;
-}
-
-function rotationForBend(mask: number): number {
-  const table: Record<number, number> = {
-    [DIR_N | DIR_E]: 0,
-    [DIR_E | DIR_S]: Math.PI / 2,
-    [DIR_S | DIR_W]: Math.PI,
-    [DIR_W | DIR_N]: -Math.PI / 2,
-  };
-  return table[mask] ?? 0;
-}
-
-function rotationForEnd(mask: number): number {
-  const table: Record<number, number> = {
-    [DIR_N]: 0,
-    [DIR_E]: Math.PI / 2,
-    [DIR_S]: Math.PI,
-    [DIR_W]: -Math.PI / 2,
-  };
-  return table[mask] ?? 0;
-}
-
-function rotationForTJunction(mask: number): number {
-  const table: Record<number, number> = {
-    [DIR_E | DIR_S | DIR_W]: 0,
-    [DIR_N | DIR_S | DIR_W]: Math.PI / 2,
-    [DIR_N | DIR_E | DIR_W]: Math.PI,
-    [DIR_N | DIR_E | DIR_S]: -Math.PI / 2,
-  };
-  return table[mask] ?? 0;
-}
-
-function pickTileFromMask(mask: number): {
-  kind: RoadTileKind;
-  rotationY: number;
-} {
+function pickTileKindFromMask(mask: number): RoadTileKind {
   const count =
     (mask & DIR_N ? 1 : 0) +
     (mask & DIR_E ? 1 : 0) +
     (mask & DIR_S ? 1 : 0) +
     (mask & DIR_W ? 1 : 0);
 
-  if (count === 1) {
-    return { kind: 'end', rotationY: rotationForEnd(mask) };
-  }
+  if (count === 1) return 'end';
   if (count === 2) {
-    if (isOppositePair(mask)) {
-      return { kind: 'straight', rotationY: rotationForStraight(mask) };
-    }
-    return { kind: 'bend', rotationY: rotationForBend(mask) };
+    return isOppositePair(mask) ? 'straight' : 'bend';
   }
-  if (count === 3) {
-    return { kind: 'tJunction', rotationY: rotationForTJunction(mask) };
-  }
-  return { kind: 'cross', rotationY: 0 };
+  if (count === 3) return 'tJunction';
+  return 'cross';
 }
 
 /** One road GLB per fine grid cell on active tag paths. */
@@ -142,13 +96,16 @@ export function mergeActiveRoadTiles(
         row,
         kind: 'end',
         mask: doorFacing,
-        rotationY: rotationForEnd(doorFacing),
       });
       continue;
     }
 
-    const { kind, rotationY } = pickTileFromMask(connectivityMask);
-    tiles.push({ col, row, kind, mask: connectivityMask, rotationY });
+    tiles.push({
+      col,
+      row,
+      kind: pickTileKindFromMask(connectivityMask),
+      mask: connectivityMask,
+    });
   }
 
   tiles.sort((a, b) =>
