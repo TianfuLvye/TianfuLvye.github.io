@@ -1,4 +1,7 @@
 import type { NoteData } from './types';
+import { UnionFind } from './structures/union-find';
+import { chebyshev } from './grid';
+import { collectTags } from './note-tags';
 
 export interface TagEdge {
   tag: string;
@@ -8,54 +11,12 @@ export interface TagEdge {
 
 export type Position2D = readonly [number, number];
 
-class UnionFind {
-  private parent = new Map<string, string>();
-
-  find(id: string): string {
-    let root = id;
-    while (this.parent.get(root) !== root) {
-      root = this.parent.get(root)!;
-    }
-    let node = id;
-    while (node !== root) {
-      const next = this.parent.get(node)!;
-      this.parent.set(node, root);
-      node = next;
-    }
-    return root;
-  }
-
-  connected(a: string, b: string): boolean {
-    return this.find(a) === this.find(b);
-  }
-
-  union(a: string, b: string): boolean {
-    const ra = this.find(a);
-    const rb = this.find(b);
-    if (ra === rb) return false;
-    this.parent.set(ra, rb);
-    return true;
-  }
-
-  ensure(id: string): void {
-    if (!this.parent.has(id)) this.parent.set(id, id);
-  }
-}
-
 function chebyshevDistance(a: Position2D, b: Position2D): number {
-  return Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
+  return chebyshev(a[0], a[1], b[0], b[1]);
 }
 
 function pairKey(a: string, b: string): string {
   return a < b ? `${a}\0${b}` : `${b}\0${a}`;
-}
-
-function collectTags(notes: NoteData[]): string[] {
-  const tags = new Set<string>();
-  for (const note of notes) {
-    for (const tag of note.tags) tags.add(tag);
-  }
-  return [...tags].sort();
 }
 
 function spanningTreeForTag(

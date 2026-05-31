@@ -26,8 +26,3 @@ export function formatNoteCharCount(charCount: number): string {
   }
   return `${charCount} 字`;
 }
-
-/** Continent header total character count. */
-export function formatTotalNoteCharCount(totalChars: number): string {
-  return formatNoteCharCount(totalChars);
-}

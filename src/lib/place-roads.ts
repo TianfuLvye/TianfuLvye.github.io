@@ -5,8 +5,16 @@ import {
   cellKey,
   isInBounds,
   neighbors4,
+  parseCellKey,
   type GridCell,
 } from './grid';
+import {
+  NEIGHBOR4_OFFSETS,
+  dirFromDelta,
+  dirIndex,
+  opposite,
+} from './direction';
+import { MinHeap } from './structures/min-heap';
 import type { ContinentMapConfig } from './map-config';
 import type { DoorDirection } from '../config/building-catalog';
 import {
@@ -24,14 +32,6 @@ const STEP_COST = 1;
 const ROAD_REUSE_COST = 0.2;
 /** Extra cost when the path changes direction (encourages straighter routes). */
 const TURN_PENALTY = 0.35;
-
-/** Incoming direction index: 0=N, 1=E, 2=S, 3=W; -1 = start (no turn yet). */
-const INCOMING_DIRS = [
-  { dc: 0, dr: -1 },
-  { dc: 1, dr: 0 },
-  { dc: 0, dr: 1 },
-  { dc: -1, dr: 0 },
-] as const;
 
 export interface RoadDoorTerminal {
   col: number;
@@ -70,56 +70,6 @@ interface AStarHeapEntry {
   sourceDir: DoorDirection;
 }
 
-class AStarMinHeap {
-  private data: AStarHeapEntry[] = [];
-
-  get size(): number {
-    return this.data.length;
-  }
-
-  push(entry: AStarHeapEntry): void {
-    this.data.push(entry);
-    this.bubbleUp(this.data.length - 1);
-  }
-
-  pop(): AStarHeapEntry | undefined {
-    if (this.data.length === 0) return undefined;
-    const top = this.data[0];
-    const last = this.data.pop()!;
-    if (this.data.length > 0) {
-      this.data[0] = last;
-      this.bubbleDown(0);
-    }
-    return top;
-  }
-
-  private bubbleUp(i: number): void {
-    while (i > 0) {
-      const parent = (i - 1) >> 1;
-      if (this.data[parent].f <= this.data[i].f) break;
-      [this.data[parent], this.data[i]] = [this.data[i], this.data[parent]];
-      i = parent;
-    }
-  }
-
-  private bubbleDown(i: number): void {
-    const n = this.data.length;
-    while (true) {
-      let smallest = i;
-      const left = i * 2 + 1;
-      const right = left + 1;
-      if (left < n && this.data[left].f < this.data[smallest].f) {
-        smallest = left;
-      }
-      if (right < n && this.data[right].f < this.data[smallest].f) {
-        smallest = right;
-      }
-      if (smallest === i) break;
-      [this.data[i], this.data[smallest]] = [this.data[smallest], this.data[i]];
-      i = smallest;
-    }
-  }
-}
 
 function buildingCellSet(buildings: BuildingPlacement[]): Set<string> {
   const set = new Set<string>();
@@ -131,28 +81,15 @@ function buildingCellSet(buildings: BuildingPlacement[]): Set<string> {
   return set;
 }
 
-/** Direction index for movement from `from` toward `to`. */
+/** Direction index (0=N,1=E,2=S,3=W) for movement from `from` toward `to`; -1 if not a unit step. */
 function incomingDirBetween(from: GridCell, to: GridCell): number {
-  const dc = to.col - from.col;
-  const dr = to.row - from.row;
-  if (dc === 0 && dr === -1) return 0;
-  if (dc === 1 && dr === 0) return 1;
-  if (dc === 0 && dr === 1) return 2;
-  if (dc === -1 && dr === 0) return 3;
-  return -1;
+  const dir = dirFromDelta(to.col - from.col, to.row - from.row);
+  return dir ? dirIndex(dir) : -1;
 }
 
+/** Entering a building through `dir` means travelling toward the opposite side. */
 function incomingDirForDoor(dir: DoorDirection): number {
-  switch (dir) {
-    case 'n':
-      return 2;
-    case 'e':
-      return 3;
-    case 's':
-      return 0;
-    case 'w':
-      return 1;
-  }
+  return dirIndex(opposite(dir));
 }
 
 function stepCostForCell(
@@ -176,27 +113,18 @@ function astarStateKey(col: number, row: number, incomingDir: number): string {
   return `${col},${row},${incomingDir}`;
 }
 
-/** Cells the trunk may not enter (footprints, door tiles, and flank cells beside doors). */
+/**
+ * Cells the trunk may not enter = footprints ∪ door flank zones.
+ * Single source of truth: derived from `computeRoadWalkBlockedLayers`, so the
+ * debug overlay and the actual pathfinder can never disagree.
+ */
 function trunkWalkBlockedCells(
   cfg: ContinentMapConfig,
   buildings: BuildingPlacement[],
-  buildingCells: Set<string>,
 ): Set<string> {
-  const blocked = new Set(buildingCells);
-
-  for (const building of buildings) {
-    for (const { door, approach } of buildingDoorApproaches(cfg, building)) {
-      blocked.add(cellKey(door.col, door.row));
-
-      for (const n of neighbors4(cfg, door.col, door.row)) {
-        const nk = cellKey(n.col, n.row);
-        if (buildingCells.has(nk)) continue;
-        if (n.col === approach.col && n.row === approach.row) continue;
-        blocked.add(nk);
-      }
-    }
-  }
-
+  const { footprints, doorZones } = computeRoadWalkBlockedLayers(cfg, buildings);
+  const blocked = new Set(footprints);
+  for (const k of doorZones) blocked.add(k);
   return blocked;
 }
 
@@ -246,7 +174,6 @@ function fallbackTrunkPath(
   cfg: ContinentMapConfig,
   source: BuildingPlacement,
   target: BuildingPlacement,
-  buildingCells: Set<string>,
   walkBlocked: Set<string>,
 ): TrunkPathResult | null {
   const sourceDoors = buildingDoorApproaches(cfg, source).filter(
@@ -296,8 +223,7 @@ function findTrunkPath(
   buildings: BuildingPlacement[],
   existingRoadCells: Set<string>,
 ): TrunkPathResult | null {
-  const buildingCells = buildingCellSet(buildings);
-  const walkBlocked = trunkWalkBlockedCells(cfg, buildings, buildingCells);
+  const walkBlocked = trunkWalkBlockedCells(cfg, buildings);
   const sourceDoors = buildingDoorApproaches(cfg, source).filter(
     ({ approach }) => !walkBlocked.has(cellKey(approach.col, approach.row)),
   );
@@ -313,7 +239,7 @@ function findTrunkPath(
 
   const gScore = new Map<string, number>();
   const prev = new Map<string, string | null>();
-  const heap = new AStarMinHeap();
+  const heap = new MinHeap<AStarHeapEntry>((e) => e.f);
 
   for (const { dir, door, approach } of sourceDoors) {
     const incoming = incomingDirBetween(door, approach);
@@ -362,8 +288,8 @@ function findTrunkPath(
       continue;
     }
 
-    for (let dirIdx = 0; dirIdx < INCOMING_DIRS.length; dirIdx++) {
-      const { dc, dr } = INCOMING_DIRS[dirIdx];
+    for (let dirIdx = 0; dirIdx < NEIGHBOR4_OFFSETS.length; dirIdx++) {
+      const { dc, dr } = NEIGHBOR4_OFFSETS[dirIdx];
       const nc = node.col + dc;
       const nr = node.row + dr;
       if (!isInBounds(cfg, nc, nr)) continue;
@@ -396,7 +322,7 @@ function findTrunkPath(
   }
 
   if (!bestGoal) {
-    return fallbackTrunkPath(cfg, source, target, buildingCells, walkBlocked);
+    return fallbackTrunkPath(cfg, source, target, walkBlocked);
   }
 
   const trunkCells: GridCell[] = [];
@@ -406,7 +332,7 @@ function findTrunkPath(
     bestGoal.incomingDir,
   );
   while (k) {
-    const [col, row] = k.split(',').slice(0, 2).map(Number);
+    const { col, row } = parseCellKey(k);
     trunkCells.unshift({ col, row });
     k = prev.get(k) ?? null;
   }

@@ -1,7 +1,9 @@
+import type { Dir4 } from '../lib/direction';
+
 export type SizeTier = 'small' | 'medium' | 'large';
 
 /** Grid-facing side where a building entrance connects to roads. */
-export type DoorDirection = 'n' | 'e' | 's' | 'w';
+export type DoorDirection = Dir4;
 
 export const DEFAULT_DOORS: DoorDirection[] = ['e'];
 export const ALL_DOORS: DoorDirection[] = ['n', 'e', 's', 'w'];

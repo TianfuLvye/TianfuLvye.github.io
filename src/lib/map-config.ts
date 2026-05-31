@@ -1,9 +1,6 @@
 /** Base continent map ground side length (world units). */
 export const MAP_SIZE_BASE = 28;
 
-/** @deprecated Use MAP_SIZE_BASE or continentMapConfig().mapSize */
-export const MAP_SIZE = MAP_SIZE_BASE;
-
 /** Multiplier on catalog footprint for GLB buildings. */
 export const BUILDING_FOOTPRINT_SCALE = 1.55;
 
@@ -13,17 +10,11 @@ export const DECOR_FOOTPRINT_SCALE = 2;
 /** Base fine grid resolution (3× the legacy 10×10 layout). */
 export const GRID_BASE = 30;
 
-/** @deprecated Use GRID_BASE or continentMapConfig().gridCols */
-export const GRID_COLS = GRID_BASE;
-
-/** @deprecated Use GRID_BASE or continentMapConfig().gridRows */
-export const GRID_ROWS = GRID_BASE;
-
-/** World units per fine grid cell at base size (MAP_SIZE / GRID_COLS). */
-export const GRID_CELL_SIZE = MAP_SIZE / GRID_COLS;
+/** World units per fine grid cell at base size (MAP_SIZE_BASE / GRID_BASE). */
+export const GRID_CELL_SIZE = MAP_SIZE_BASE / GRID_BASE;
 
 /** Orthographic camera zoom at base size; scales with map so the continent fits the view. */
-export const MAP_CAMERA_ZOOM = Math.round(48 * (MAP_SIZE / 18));
+export const MAP_CAMERA_ZOOM = Math.round(48 * (MAP_SIZE_BASE / 18));
 
 /** Most zoomed-out level at base map size (smaller zoom = wider view). */
 export const MAP_CAMERA_MIN_ZOOM_BASE = 20;
@@ -60,7 +51,7 @@ export type BuildingGridSpan =
 export const BUILDING_MIN_GAP = 2;
 
 /** Forest edge ribbons along map sides (world units) at base size. */
-export const FOREST_RIBBON_LENGTH = MAP_SIZE * 0.72;
+export const FOREST_RIBBON_LENGTH = MAP_SIZE_BASE * 0.72;
 export const FOREST_RIBBON_WIDTH = 3.2;
 
 /** Perimeter-biased elliptical forest patches. */
@@ -85,10 +76,10 @@ export const FOREST_GROUND_DENSITY = 0.22;
 export const FOREST_MIN_BUILDING_DIST = 2.0;
 
 /** Min distance from a tree trunk center for ground decor (world units) at base size. */
-export const GRID_FOREST_GROUND_TRUNK_CLEARANCE = (MAP_SIZE / 10) * 0.12;
+export const GRID_FOREST_GROUND_TRUNK_CLEARANCE = (MAP_SIZE_BASE / 10) * 0.12;
 
 /** Min distance between tree centers within a forest zone (world units) at base size. */
-export const GRID_FOREST_TREE_MIN_SEPARATION = (MAP_SIZE / 10) * 0.32;
+export const GRID_FOREST_TREE_MIN_SEPARATION = (MAP_SIZE_BASE / 10) * 0.32;
 
 /** Default min distance from any building for wild scatter. */
 export const DECOR_WILD_MIN_BUILDING_DIST = 1.8;
@@ -99,10 +90,10 @@ export const DECOR_LARGE_MIN_BUILDING_DIST = 3.2;
 /** Per-building probability of generating flower pots. */
 export const DECOR_POT_BUILDING_CHANCE = 0.6;
 
-/** Flower patch count baseline at MAP_SIZE = 18 (scaled for fine grid area). */
+/** Flower patch count baseline at map size 18 (scaled for fine grid area). */
 export const DECOR_FLOWER_PATCH_DENSITY = 15;
 
-/** Wild scatter count baseline at MAP_SIZE = 18 (scaled for fine grid area). */
+/** Wild scatter count baseline at map size 18 (scaled for fine grid area). */
 export const DECOR_WILD_SCATTER_DENSITY = 105;
 
 /** Hard cap on total decoration instances per continent at base map size. */
@@ -113,7 +104,7 @@ export const LEGACY_GRID_CELLS = 10 * 10;
 
 /** Ratio of base grid area to legacy (30×30 → 9×). */
 export const GRID_AREA_SCALE =
-  (GRID_COLS * GRID_ROWS) / LEGACY_GRID_CELLS;
+  (GRID_BASE * GRID_BASE) / LEGACY_GRID_CELLS;
 
 export interface ContinentMapConfig {
   mapSize: number;

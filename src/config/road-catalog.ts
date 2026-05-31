@@ -1,5 +1,5 @@
 import { ROAD_TILE_DEFAULT_ROTATION, ROAD_TILE_FOOTPRINT } from '../lib/map-config';
-import { DIR_E, DIR_W } from '../lib/road-debug';
+import { DIR_E, DIR_W } from '../lib/direction';
 
 export type RoadTileKind = 'straight' | 'bend' | 'tJunction' | 'cross' | 'end';
 

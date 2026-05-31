@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import {
-  formatNoteCharCount,
-  formatTotalNoteCharCount,
-} from '../lib/note-size';
+import { formatNoteCharCount } from '../lib/note-size';
+import { collectTags } from '../lib/note-tags';
+import { compareNotes } from '../lib/note-sort';
 import type { ContinentData, NoteData, SortKey } from '../lib/types';
 import { useWorld } from '../store';
 
@@ -17,14 +16,6 @@ const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
   { key: 'date', label: 'by date' },
   { key: 'name', label: 'by name' },
 ];
-
-function collectTags(notes: NoteData[]): string[] {
-  const tags = new Set<string>();
-  for (const note of notes) {
-    for (const tag of note.tags) tags.add(tag);
-  }
-  return [...tags].sort();
-}
 
 export default function Sidebar({ continent, onPick }: Props) {
   const sortKey = useWorld((s) => s.sortKey);
@@ -49,23 +40,10 @@ export default function Sidebar({ continent, onPick }: Props) {
     );
   }, [continent.notes, activeTags]);
 
-  const ordered = useMemo(() => {
-    const arr = [...filteredNotes];
-    switch (sortKey) {
-      case 'size':
-        arr.sort((a, b) => b.size - a.size);
-        break;
-      case 'date':
-        arr.sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-        );
-        break;
-      case 'name':
-        arr.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-    }
-    return arr;
-  }, [filteredNotes, sortKey]);
+  const ordered = useMemo(
+    () => [...filteredNotes].sort(compareNotes(sortKey)),
+    [filteredNotes, sortKey],
+  );
 
   const handleTagHover = (tag: string | null) => {
     if (!tag) {
@@ -85,7 +63,7 @@ export default function Sidebar({ continent, onPick }: Props) {
         <h3 className="sidebar-name">{continent.label}</h3>
         <div className="sidebar-count">
           {continent.notes.length} notes ·{' '}
-          {formatTotalNoteCharCount(continent.totalSize)}
+          {formatNoteCharCount(continent.totalSize)}
         </div>
       </div>
 

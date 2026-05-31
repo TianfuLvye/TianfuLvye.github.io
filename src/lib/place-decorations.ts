@@ -6,11 +6,11 @@ import {
 } from '../config/decoration-catalog';
 import {
   allCells,
-  GridOccupancy,
   shuffleCells,
   subCellWorldPosition,
   type GridCell,
 } from './grid';
+import { GridOccupancy } from './grid-occupancy';
 import {
   collectForestCells,
   forestZoneWorldArea,

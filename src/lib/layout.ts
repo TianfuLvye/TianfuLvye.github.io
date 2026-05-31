@@ -4,11 +4,12 @@ import {
   type DoorDirection,
   type SizeTier,
 } from '../config/building-catalog';
+import { DIR_BIT, DIR_OFFSET, opposite } from './direction';
 import {
   blockCellsWithMargin,
   buildableBlockAnchors,
-  buildingGridCells,
-  buildingWorldCenter,
+  blockCells,
+  blockCenter,
   cellKey,
   isInBounds,
   overflowBlockAnchors,
@@ -199,7 +200,7 @@ function blockIsFree(
   taken: Set<string>,
   blockedCells: Set<string>,
 ): boolean {
-  const cells = buildingGridCells(anchor.col, anchor.row, span);
+  const cells = blockCells(anchor.col, anchor.row, span);
   return cells.every((c) => {
     const k = cellKey(c.col, c.row);
     return !taken.has(k) && !blockedCells.has(k);
@@ -246,18 +247,13 @@ export function gridPositionForBuilding(
   return [building.gridCol + half, building.gridRow + half] as const;
 }
 
-/** N=1, E=2, S=4, W=8 — direction from road cell toward building. */
+/**
+ * 路瓦片"指向建筑"的连接位(N=1, E=2, S=4, W=8)。
+ * 路铺在门的外侧,所以从路指向建筑的方向 = 门方向取反:
+ * 门朝 e,路就在 e 侧、需朝 w 才指回建筑 → DIR_BIT['w']。
+ */
 export function doorFacingMask(dir: DoorDirection): number {
-  switch (dir) {
-    case 'n':
-      return 4; // DIR_S
-    case 'e':
-      return 8; // DIR_W
-    case 's':
-      return 1; // DIR_N
-    case 'w':
-      return 2; // DIR_E
-  }
+  return DIR_BIT[opposite(dir)];
 }
 
 export function doorConnectionCell(
@@ -268,6 +264,7 @@ export function doorConnectionCell(
   const half = (span - 1) / 2;
   const centerCol = building.gridCol + half;
   const centerRow = building.gridRow + half;
+  // 门格落在 footprint 紧贴的外侧那一格(用 span/-1 定位到建筑边缘,非单位方向)。
   switch (dir) {
     case 'n':
       return { col: centerCol, row: building.gridRow - 1 };
@@ -286,16 +283,8 @@ export function doorApproachCell(
   dir: DoorDirection,
 ): GridCell {
   const door = doorConnectionCell(building, dir);
-  switch (dir) {
-    case 'n':
-      return { col: door.col, row: door.row - 1 };
-    case 'e':
-      return { col: door.col + 1, row: door.row };
-    case 's':
-      return { col: door.col, row: door.row + 1 };
-    case 'w':
-      return { col: door.col - 1, row: door.row };
-  }
+  const { dc, dr } = DIR_OFFSET[dir];
+  return { col: door.col + dc, row: door.row + dr };
 }
 
 export interface BuildingDoorApproach {
@@ -392,8 +381,8 @@ export function placeBuildings(
     const { col, row } = slot.anchor;
     markBlockWithGap(cfg, slot.anchor, gridSpan, taken);
 
-    const gridCells = buildingGridCells(col, row, gridSpan);
-    const [x, z] = buildingWorldCenter(cfg, col, row, gridSpan);
+    const gridCells = blockCells(col, row, gridSpan);
+    const [x, z] = blockCenter(cfg, col, row, gridSpan);
 
     placed.push({
       note,

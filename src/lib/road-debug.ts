@@ -1,10 +1,6 @@
 import type { RoadTileKind } from '../config/road-catalog';
 import { ROAD_TILE_FOOTPRINT } from './map-config';
-
-export const DIR_N = 1;
-export const DIR_E = 2;
-export const DIR_S = 4;
-export const DIR_W = 8;
+import { DIR_N, DIR_E, DIR_S, DIR_W } from './direction';
 
 export interface CardinalDeg {
   n: number;

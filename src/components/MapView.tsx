@@ -13,6 +13,7 @@ import {
   type ContinentMapConfig,
 } from '../lib/map-config';
 import { placeDecorations } from '../lib/place-decorations';
+import { compareNotes } from '../lib/note-sort';
 import { useWorld } from '../store';
 import GlTFModel from './GlTFModel';
 import InstancedDecorations from './InstancedDecorations';
@@ -77,18 +78,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
 
   // 根据 sortKey 排序，决定每个 note 的"漂浮顺序"
   const sortRank = useMemo(() => {
-    const sorted = [...continent.notes].sort((a, b) => {
-      switch (sortKey) {
-        case 'size':
-          return b.size - a.size;
-        case 'name':
-          return a.title.localeCompare(b.title);
-        case 'date':
-          return new Date(b.date).getTime() - new Date(a.date).getTime();
-        default:
-          return 0;
-      }
-    });
+    const sorted = [...continent.notes].sort(compareNotes(sortKey));
     const m = new Map<string, number>();
     sorted.forEach((n, i) => m.set(n.id, i));
     return m;

@@ -1,7 +1,5 @@
-import {
-  type BuildingGridSpan,
-  type ContinentMapConfig,
-} from './map-config';
+import { NEIGHBOR4_OFFSETS } from './direction';
+import { type ContinentMapConfig } from './map-config';
 import { rangeFrom } from './random';
 
 export interface GridCell {
@@ -83,12 +81,7 @@ export function neighbors4(
   row: number,
 ): GridCell[] {
   const out: GridCell[] = [];
-  for (const [dc, dr] of [
-    [0, 1],
-    [0, -1],
-    [1, 0],
-    [-1, 0],
-  ] as const) {
+  for (const { dc, dr } of NEIGHBOR4_OFFSETS) {
     const nc = col + dc;
     const nr = row + dr;
     if (isInBounds(cfg, nc, nr)) out.push({ col: nc, row: nr });
@@ -96,11 +89,21 @@ export function neighbors4(
   return out;
 }
 
+/** Chebyshev (chessboard) distance between two integer points. */
+export function chebyshev(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): number {
+  return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+}
+
 export function chebyshevDistance(
   a: GridCell,
   b: GridCell,
 ): number {
-  return Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
+  return chebyshev(a.col, a.row, b.col, b.row);
 }
 
 export function allCells(cfg: ContinentMapConfig): GridCell[] {
@@ -171,24 +174,6 @@ export function blockCenter(
   return cellCenter(cfg, centerCol, centerRow);
 }
 
-export function buildingGridCells(
-  anchorCol: number,
-  anchorRow: number,
-  span: BuildingGridSpan,
-): GridCell[] {
-  return blockCells(anchorCol, anchorRow, span);
-}
-
-export function buildingWorldCenter(
-  cfg: ContinentMapConfig,
-  anchorCol: number,
-  anchorRow: number,
-  span: BuildingGridSpan,
-): [number, number] {
-  return blockCenter(cfg, anchorCol, anchorRow, span);
-}
-
-/** Footprint plus a Chebyshev margin (for BUILDING_MIN_GAP). */
 export function blockCellsWithMargin(
   cfg: ContinentMapConfig,
   anchorCol: number,
@@ -244,6 +229,15 @@ export function cellKey(col: number, row: number): string {
   return `${col},${row}`;
 }
 
+/**
+ * cellKey 的逆操作。用 limit=2 的 split,因此既能解析二段的 "col,row",
+ * 也能从三段的 A* 状态键 "col,row,dir" 中取出格坐标。
+ */
+export function parseCellKey(key: string): GridCell {
+  const [col, row] = key.split(',', 2).map(Number);
+  return { col, row };
+}
+
 export function shuffleCells<T>(items: T[], rng: () => number): void {
   for (let i = items.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -251,134 +245,6 @@ export function shuffleCells<T>(items: T[], rng: () => number): void {
   }
 }
 
-export class GridOccupancy {
-  private buildings = new Map<string, string>();
-  private forests = new Map<string, number>();
-  private forestSeeds = new Map<number, GridCell>();
-  private flowerPatches = new Set<string>();
-  private plantCounts = new Map<string, number>();
-  private buildingDist: Float32Array | null = null;
-
-  constructor(private readonly cfg: ContinentMapConfig) {}
-
-  private key(col: number, row: number): string {
-    return cellKey(col, row);
-  }
-
-  markBuildingCells(cells: GridCell[], noteId: string): void {
-    for (const { col, row } of cells) {
-      this.setBuilding(col, row, noteId);
-    }
-    this.buildingDist = null;
-  }
-
-  setBuilding(col: number, row: number, noteId: string): void {
-    this.buildings.set(cellKey(col, row), noteId);
-    this.buildingDist = null;
-  }
-
-  hasBuilding(col: number, row: number): boolean {
-    return this.buildings.has(cellKey(col, row));
-  }
-
-  setForest(
-    col: number,
-    row: number,
-    forestId: number,
-    isSeed = false,
-  ): void {
-    this.forests.set(cellKey(col, row), forestId);
-    if (isSeed || !this.forestSeeds.has(forestId)) {
-      this.forestSeeds.set(forestId, { col, row });
-    }
-  }
-
-  hasForest(col: number, row: number): boolean {
-    return this.forests.has(cellKey(col, row));
-  }
-
-  getBuildingCells(): GridCell[] {
-    const out: GridCell[] = [];
-    for (const k of this.buildings.keys()) {
-      const [col, row] = k.split(',').map(Number);
-      out.push({ col, row });
-    }
-    return out;
-  }
-
-  getForestSeedCells(): GridCell[] {
-    return [...this.forestSeeds.values()];
-  }
-
-  allForestCells(): GridCell[] {
-    const out: GridCell[] = [];
-    for (const k of this.forests.keys()) {
-      const [col, row] = k.split(',').map(Number);
-      out.push({ col, row });
-    }
-    return out;
-  }
-
-  setFlowerPatch(col: number, row: number): void {
-    this.flowerPatches.add(this.key(col, row));
-  }
-
-  hasFlowerPatch(col: number, row: number): boolean {
-    return this.flowerPatches.has(this.key(col, row));
-  }
-
-  incrementPlants(col: number, row: number): void {
-    const k = this.key(col, row);
-    this.plantCounts.set(k, (this.plantCounts.get(k) ?? 0) + 1);
-  }
-
-  isOccupiedForWild(col: number, row: number): boolean {
-    return (
-      this.hasBuilding(col, row) ||
-      this.hasForest(col, row) ||
-      this.hasFlowerPatch(col, row)
-    );
-  }
-
-  private ensureBuildingDist(): void {
-    if (this.buildingDist) return;
-
-    const { gridCols, gridRows } = this.cfg;
-    const dist = new Float32Array(gridCols * gridRows);
-    dist.fill(Infinity);
-    const buildingCells = this.getBuildingCells();
-    if (buildingCells.length === 0) {
-      this.buildingDist = dist;
-      return;
-    }
-
-    for (let row = 0; row < gridRows; row++) {
-      for (let col = 0; col < gridCols; col++) {
-        let min = Infinity;
-        for (const b of buildingCells) {
-          min = Math.min(min, chebyshevDistance({ col, row }, b));
-        }
-        dist[row * gridCols + col] = min;
-      }
-    }
-    this.buildingDist = dist;
-  }
-
-  minChebyshevToBuilding(col: number, row: number): number {
-    this.ensureBuildingDist();
-    return this.buildingDist![row * this.cfg.gridCols + col];
-  }
-
-  minChebyshevToForest(col: number, row: number): number {
-    const seeds = this.getForestSeedCells();
-    if (seeds.length === 0) return Infinity;
-    let min = Infinity;
-    for (const s of seeds) {
-      min = Math.min(min, chebyshevDistance({ col, row }, s));
-    }
-    return min;
-  }
-}
 
 /** Line segments for grid overlay: pairs of [x,y,z] points. */
 export function gridLineSegments(

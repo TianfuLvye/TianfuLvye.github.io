@@ -1,12 +1,15 @@
 import type { RoadTileKind } from '../config/road-catalog';
 import type { RoadSegment } from './place-roads';
-import { cellKey, type GridCell } from './grid';
-
-/** N=1, E=2, S=4, W=8 */
-const DIR_N = 1;
-const DIR_E = 2;
-const DIR_S = 4;
-const DIR_W = 8;
+import { cellKey, parseCellKey, type GridCell } from './grid';
+import {
+  DIR_N,
+  DIR_E,
+  DIR_S,
+  DIR_W,
+  DIR_BIT,
+  NEIGHBOR4_OFFSETS,
+  dirFromDelta,
+} from './direction';
 
 export interface RoadTileInstance {
   col: number;
@@ -18,23 +21,14 @@ export interface RoadTileInstance {
 }
 
 function directionBetween(a: GridCell, b: GridCell): number {
-  const dc = b.col - a.col;
-  const dr = b.row - a.row;
-  if (dc === 1 && dr === 0) return DIR_E;
-  if (dc === -1 && dr === 0) return DIR_W;
-  if (dc === 0 && dr === 1) return DIR_S;
-  if (dc === 0 && dr === -1) return DIR_N;
-  return 0;
+  const dir = dirFromDelta(b.col - a.col, b.row - a.row);
+  return dir ? DIR_BIT[dir] : 0;
 }
 
 function maskForCell(cell: GridCell, pathSet: Set<string>): number {
   let mask = 0;
-  for (const n of [
-    { col: cell.col, row: cell.row - 1 },
-    { col: cell.col + 1, row: cell.row },
-    { col: cell.col, row: cell.row + 1 },
-    { col: cell.col - 1, row: cell.row },
-  ]) {
+  for (const { dc, dr } of NEIGHBOR4_OFFSETS) {
+    const n = { col: cell.col + dc, row: cell.row + dr };
     if (pathSet.has(cellKey(n.col, n.row))) {
       mask |= directionBetween(cell, n);
     }
@@ -137,7 +131,7 @@ export function mergeActiveRoadTiles(
 
   const tiles: RoadTileInstance[] = [];
   for (const key of cellKeys) {
-    const [col, row] = key.split(',').map(Number);
+    const { col, row } = parseCellKey(key);
     const connectivityMask = maskForCell({ col, row }, allPathCells);
     if (connectivityMask === 0) continue;
 

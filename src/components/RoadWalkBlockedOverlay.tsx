@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { cellCenter } from '../lib/grid';
+import { cellCenter, parseCellKey } from '../lib/grid';
 import type { ContinentMapConfig } from '../lib/map-config';
 import type { BuildingPlacement } from '../lib/layout';
 import { computeRoadWalkBlockedLayers } from '../lib/place-roads';
@@ -40,7 +40,7 @@ function CellPlaneInstances({
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
     cellKeys.forEach((key, i) => {
-      const [col, row] = key.split(',').map(Number);
+      const { col, row } = parseCellKey(key);
       const [x, z] = cellCenter(cfg, col, row);
       position.set(x, y, z);
       matrix.makeTranslation(position.x, position.y, position.z);

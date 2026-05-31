@@ -2,8 +2,8 @@ import {
   cellCenter,
   isBuildableCell,
   type GridCell,
-  type GridOccupancy,
 } from './grid';
+import type { GridOccupancy } from './grid-occupancy';
 import {
   FOREST_EDGE_CENTER_MAX,
   FOREST_EDGE_CENTER_MIN,
