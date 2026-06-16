@@ -7,6 +7,7 @@ import { remarkObsidianWikilinks } from './src/lib/remark-obsidian-wikilinks.ts'
 
 // https://astro.build/config
 export default defineConfig({
+  site: "https://tianfulvye.github.io",
   integrations: [react()],
   markdown: {
     remarkPlugins: [remarkObsidianImages, remarkObsidianWikilinks, remarkMath],
