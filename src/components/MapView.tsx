@@ -13,6 +13,7 @@ import {
 import { placeContinentLayout } from '../lib/place-continent-layout';
 import {
   GRID_BUILDING_ROTATION,
+  TERRAIN_PLATFORM_Y,
   type ContinentMapConfig,
 } from '../lib/map-config';
 import { placeDecorations } from '../lib/place-decorations';
@@ -24,6 +25,7 @@ import InstancedBuildings from './InstancedBuildings';
 import InstancedDecorations from './InstancedDecorations';
 import InstancedRoadTiles from './InstancedRoadTiles';
 import MapModelPreload from './MapModelPreload';
+import MapTerrain from './MapTerrain';
 import OrthoScaledHtml from './OrthoScaledHtml';
 import RoadWalkBlockedOverlay from './RoadWalkBlockedOverlay';
 
@@ -141,7 +143,7 @@ export default function MapView({ continent, onOpenNote, onReady }: Props) {
           mapConfig.mapSize * 0.5,
         ]}
         near={0.1}
-        far={mapConfig.mapSize * 4}
+        far={mapConfig.mapSize * 12}
       />
 
       <ambientLight intensity={0.7} color="#fff1d6" />
@@ -153,78 +155,68 @@ export default function MapView({ continent, onOpenNote, onReady }: Props) {
       />
       <hemisphereLight args={['#fdf6e3', '#3a4d6b', 0.35]} />
 
-      {/* 大地 */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}
-        receiveShadow
-        onClick={(e) => {
+      <MapTerrain
+        mapConfig={mapConfig}
+        onGroundClick={(e) => {
           e.stopPropagation();
           selectNote(null);
         }}
-        onContextMenu={(e) => {
+        onGroundContextMenu={(e) => {
           e.stopPropagation();
           e.nativeEvent.preventDefault();
           clearActiveTags();
         }}
-      >
-        <planeGeometry args={[mapConfig.mapSize, mapConfig.mapSize, 1, 1]} />
-        <meshStandardMaterial color="#d9c79a" roughness={0.95} />
-      </mesh>
-
-      {/* 海岸线 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
-        <planeGeometry args={[mapConfig.mapSize + 4, mapConfig.mapSize + 4, 1, 1]} />
-        <meshStandardMaterial color="#264a6b" roughness={0.6} />
-      </mesh>
-
-      {showGridDebug && <GridOverlay cfg={mapConfig} />}
-
-      {showRoadWalkBlockedDebug && (
-        <RoadWalkBlockedOverlay cfg={mapConfig} buildings={buildings} />
-      )}
-
-      {/* 一些装饰性的小树 / 灌木 */}
-      <Decorations
-        continentId={continent.id}
-        cfg={mapConfig}
-        buildings={buildings}
       />
 
-      <InstancedRoadTiles
-        segments={tagRoadSegments}
-        activeTags={activeTags}
-        cfg={mapConfig}
-      />
+      <group position={[0, TERRAIN_PLATFORM_Y, 0]}>
+        {showGridDebug && <GridOverlay cfg={mapConfig} />}
 
-      {!isSorted && (
-        <InstancedBuildings
+        {showRoadWalkBlockedDebug && (
+          <RoadWalkBlockedOverlay cfg={mapConfig} buildings={buildings} />
+        )}
+
+        {/* 一些装饰性的小树 / 灌木 */}
+        <Decorations
+          continentId={continent.id}
+          cfg={mapConfig}
           buildings={buildings}
-          hiddenIds={emphasizedIds}
         />
-      )}
 
-      {/* 建筑物：交互、标签、高亮 / sort 模式逐座渲染 */}
-      {buildings.map((b) => (
-        <Building
-          key={b.note.id}
-          noteId={b.note.id}
-          placement={b}
-          isHovered={hoveredNoteIdSet.has(b.note.id)}
-          isSelected={selectedNoteId === b.note.id}
-          isTagHighlighted={
-            activeTags.length > 0 && tagHighlightIds.has(b.note.id)
-          }
-          isPointerHovered={pointerHoveredId === b.note.id}
-          showVisual={isSorted || emphasizedIds.has(b.note.id)}
-          isFloating={isSorted}
-          floatRank={sortRank.get(b.note.id) ?? 0}
-          totalCount={continent.notes.length}
-          onPointerHover={handleBuildingPointerHover}
-          onClick={handleBuildingClick}
-          onDoubleClick={handleBuildingDoubleClick}
+        <InstancedRoadTiles
+          segments={tagRoadSegments}
+          activeTags={activeTags}
+          cfg={mapConfig}
         />
-      ))}
+
+        {!isSorted && (
+          <InstancedBuildings
+            buildings={buildings}
+            hiddenIds={emphasizedIds}
+          />
+        )}
+
+        {/* 建筑物：交互、标签、高亮 / sort 模式逐座渲染 */}
+        {buildings.map((b) => (
+          <Building
+            key={b.note.id}
+            noteId={b.note.id}
+            placement={b}
+            isHovered={hoveredNoteIdSet.has(b.note.id)}
+            isSelected={selectedNoteId === b.note.id}
+            isTagHighlighted={
+              activeTags.length > 0 && tagHighlightIds.has(b.note.id)
+            }
+            isPointerHovered={pointerHoveredId === b.note.id}
+            showVisual={isSorted || emphasizedIds.has(b.note.id)}
+            isFloating={isSorted}
+            floatRank={sortRank.get(b.note.id) ?? 0}
+            totalCount={continent.notes.length}
+            onPointerHover={handleBuildingPointerHover}
+            onClick={handleBuildingClick}
+            onDoubleClick={handleBuildingDoubleClick}
+          />
+        ))}
+      </group>
 
       <MapControls
         enableRotate={false}

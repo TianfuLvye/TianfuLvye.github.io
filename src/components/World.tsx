@@ -117,7 +117,7 @@ export default function World({ tree }: Props) {
         camera={{ position: [0, 0, 7], fov: 45 }}
         dpr={[1, 2]}
       >
-        <color attach="background" args={['#0b1426']} />
+        <color attach="background" args={[view.kind === 'map' ? '#197cad' : '#0b1426']} />
         {view.kind === 'globe' && (
           <Globe tree={tree} onEnter={handleEnterContinent} />
         )}

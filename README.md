@@ -57,6 +57,7 @@ npm run preview      # 预览构建
     │   ├── World.tsx             # 总入口：Canvas / 视图切换 / 转场
     │   ├── Globe.tsx             # 3D 地球 + 大陆长方体
     │   ├── MapView.tsx           # 2.5D 正交地图、灯光、建筑与装饰
+    │   ├── MapTerrain.tsx        # 小岛地形：草地平台、四边礁石/沙滩、海水
     │   ├── GlTFModel.tsx         # GLB 加载、归一化缩放、高亮、pick 体积
     │   ├── DecorationModel.tsx
     │   ├── MapModelPreload.tsx   # 按大陆预加载 GLB
@@ -73,7 +74,8 @@ npm run preview      # 预览构建
     │   └── NoteLayout.astro
     ├── lib/
     │   ├── types.ts
-    │   ├── map-config.ts         # 地图尺寸、间距、建筑/装饰缩放系数
+    │   ├── map-config.ts         # 地图尺寸、间距、建筑/装饰缩放系数、地形常量
+    │   ├── reef-zones.ts         # 四边礁石/沙滩裙边几何
     │   ├── note-size.ts          # 字数分档、侧栏字数格式化
     │   ├── random.ts             # mulberry32 + FNV-1a 种子
     │   ├── build-tree.ts         # content → WorldTree
@@ -115,6 +117,7 @@ npm run preview      # 预览构建
 - 低多边形 GLB 装饰（树、草、花、石头等），含按大陆种子选取的森林区域（椭圆/带状）内密集树木；种类与 footprint 见 `decoration-catalog.ts`
 - **tag 马路**：同大陆内每个 tag 对带该 tag 的笔记生成 spanning tree（k−1 条边），优先连近距离；建筑间用 BFS 在细网格上寻路并避开建筑占格；Sidebar 点选 tag chip 后，在对应路径上铺 GLB 拼块（直/弯/T 字/十字/端点），同格多 tag 合并拓扑；`InstancedRoadTiles` 实例化渲染
 - 地图视图右上角「grid」开关可显示细网格调试线
+- **小岛地形**：地图为抬升的四棱台——顶面 `#80a334` 平地（y=10），四边灰褐礁石（y=10→4）与米色沙滩（y=4→0），外围静态海水 `#197cad`（y=0）；尺寸与 `map-config.ts` 中的 `TERRAIN_*` 常量联动
 
 ## 留待之后（未做）
 
@@ -139,7 +142,8 @@ npm run preview      # 预览构建
 
 整体走"老世界地图集 / 探险家手册"路线：
 
-- 深夜蓝海洋 `#0b1426`，米色羊皮纸 `#f5ecd9`
+- 深夜蓝海洋 `#0b1426`（地球视图）；地图视图为海水色 `#197cad`
+- 米色羊皮纸 `#f5ecd9`
 - 暖赭石强调色 `#c9a961`
 - Fraunces 斜体作为大标题，呼应古地图字体
 - 面板上有重复线条纹理，模拟笔记本横线

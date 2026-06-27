@@ -192,3 +192,71 @@ export const ROAD_TILE_FOOTPRINT = GRID_CELL_SIZE;
 
 /** Vertical offset after grounding road tiles on Y. */
 export const ROAD_TILE_Y_OFFSET = 0.04;
+
+/** Y level of the island top surface (buildings sit here via platform group offset). */
+export const TERRAIN_PLATFORM_Y = 10;
+
+/** Sea plane Y (water surface). */
+export const TERRAIN_SEA_Y = 0;
+
+/** Flat ground color. */
+export const TERRAIN_GROUND_COLOR = '#80a334';
+
+/** Sea color (static, no waves for now). */
+export const TERRAIN_SEA_COLOR = '#197cad';
+
+/** Sand beach color (red line in design sketch). */
+export const TERRAIN_BEACH_COLOR = '#e8d4a8';
+
+/** Reef rock color (orange line in design sketch). */
+export const TERRAIN_REEF_COLOR = '#6b6358';
+
+/** Y where reef slope meets beach slope. */
+export const TERRAIN_REEF_BOTTOM_Y = 4;
+
+/** Outward extent of reef skirt at base map size (world units). */
+export const TERRAIN_REEF_OUTWARD_BASE = 8;
+
+/** Outward extent of beach skirt beyond reef foot at base map size. */
+export const TERRAIN_BEACH_OUTWARD_BASE = 10;
+
+/** Sea plane side length as a multiple of mapSize. */
+export const TERRAIN_SEA_EXTENT_FACTOR = 6;
+
+export function terrainReefOutward(cfg: ContinentMapConfig): number {
+  return TERRAIN_REEF_OUTWARD_BASE * Math.sqrt(cfg.sideScale);
+}
+
+export function terrainBeachOutward(cfg: ContinentMapConfig): number {
+  return TERRAIN_BEACH_OUTWARD_BASE * Math.sqrt(cfg.sideScale);
+}
+
+/** Total outward skirt from platform edge to beach foot. */
+export function terrainSkirtOutward(cfg: ContinentMapConfig): number {
+  return terrainReefOutward(cfg) + terrainBeachOutward(cfg);
+}
+
+/** Y at the bottom of the four edge reef slopes (= sea level). */
+export function terrainSlopeBottomY(_cfg?: ContinentMapConfig): number {
+  return TERRAIN_SEA_Y;
+}
+
+/** Sea plane Y. */
+export function terrainSeaY(_cfg?: ContinentMapConfig): number {
+  return TERRAIN_SEA_Y;
+}
+
+/** Beach width equals buildable inset ring — derived at runtime via beachWidth(cfg). */
+export function beachWidth(cfg: ContinentMapConfig): number {
+  return cfg.buildableInset * cfg.cellSize;
+}
+
+/** Inner buildable grass area side length (unused visually — ground is one flat mapSize plane). */
+export function grassIslandSize(cfg: ContinentMapConfig): number {
+  return cfg.mapSize - 2 * beachWidth(cfg);
+}
+
+/** Sea plane side length. */
+export function seaExtent(cfg: ContinentMapConfig): number {
+  return cfg.mapSize * TERRAIN_SEA_EXTENT_FACTOR;
+}
