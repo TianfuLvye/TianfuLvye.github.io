@@ -7,14 +7,15 @@ import {
   TERRAIN_PLATFORM_Y,
   TERRAIN_REEF_COLOR,
   TERRAIN_SEA_COLOR,
-  TERRAIN_SEA_Y,
   terrainReefOutward,
+  terrainSeaY,
   type ContinentMapConfig,
 } from '../lib/map-config';
 import {
   buildBeachSkirts,
   buildReefSkirts,
-  getSkirtSideGeometry,
+  getBeachSideGeometry,
+  getReefSideGeometry,
 } from '../lib/reef-zones';
 
 interface Props {
@@ -31,6 +32,7 @@ export default function MapTerrain({
   const seaSize = seaExtent(mapConfig);
   const mapHalf = mapConfig.mapSize / 2;
   const reefOut = terrainReefOutward(mapConfig);
+  const seaY = terrainSeaY(mapConfig);
 
   const reefSkirts = useMemo(
     () => buildReefSkirts(mapConfig),
@@ -47,7 +49,7 @@ export default function MapTerrain({
       {/* Sea — large unlit plane; canvas bg matches this color as fallback */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, TERRAIN_SEA_Y, 0]}
+        position={[0, seaY, 0]}
         renderOrder={0}
         frustumCulled={false}
         raycast={() => null}
@@ -73,7 +75,7 @@ export default function MapTerrain({
       {reefSkirts.map((skirt) => (
         <mesh
           key={`reef-${skirt.side}`}
-          geometry={getSkirtSideGeometry(
+          geometry={getReefSideGeometry(
             skirt.side,
             mapHalf,
             skirt.topY,
@@ -82,17 +84,24 @@ export default function MapTerrain({
           )}
           renderOrder={2}
           frustumCulled={false}
+          castShadow
+          receiveShadow
           raycast={() => null}
         >
-          <meshBasicMaterial color={TERRAIN_REEF_COLOR} side={THREE.DoubleSide} />
+          <meshStandardMaterial
+            color={TERRAIN_REEF_COLOR}
+            roughness={0.88}
+            metalness={0.04}
+            flatShading
+          />
         </mesh>
       ))}
 
-      {/* Beach skirts — four sides below reef (red in sketch) */}
+      {/* Beach frustums — top edge matches reef bottom footprint */}
       {beachSkirts.map((skirt) => (
         <mesh
           key={`beach-${skirt.side}`}
-          geometry={getSkirtSideGeometry(
+          geometry={getBeachSideGeometry(
             skirt.side,
             mapHalf + reefOut,
             skirt.topY,
@@ -101,9 +110,16 @@ export default function MapTerrain({
           )}
           renderOrder={3}
           frustumCulled={false}
+          castShadow
+          receiveShadow
           raycast={() => null}
         >
-          <meshBasicMaterial color={TERRAIN_BEACH_COLOR} side={THREE.DoubleSide} />
+          <meshStandardMaterial
+            color={TERRAIN_BEACH_COLOR}
+            roughness={0.92}
+            metalness={0.02}
+            flatShading
+          />
         </mesh>
       ))}
     </group>

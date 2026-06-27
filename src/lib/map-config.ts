@@ -196,9 +196,6 @@ export const ROAD_TILE_Y_OFFSET = 0.04;
 /** Y level of the island top surface (buildings sit here via platform group offset). */
 export const TERRAIN_PLATFORM_Y = 10;
 
-/** Sea plane Y (water surface). */
-export const TERRAIN_SEA_Y = 0;
-
 /** Flat ground color. */
 export const TERRAIN_GROUND_COLOR = '#80a334';
 
@@ -211,14 +208,42 @@ export const TERRAIN_BEACH_COLOR = '#e8d4a8';
 /** Reef rock color (orange line in design sketch). */
 export const TERRAIN_REEF_COLOR = '#6b6358';
 
-/** Y where reef slope meets beach slope. */
-export const TERRAIN_REEF_BOTTOM_Y = 4;
+/** Reef outer face: angle from horizontal (°). ~85° ≈ near-vertical cliff (≈5° from vertical). */
+export const TERRAIN_REEF_SLOPE_DEG = 85;
+
+/** Beach outer face: angle from horizontal (°). User “85°” means 90−85 = 5° above flat ground. */
+export const TERRAIN_BEACH_SLOPE_DEG = 5;
 
 /** Outward extent of reef skirt at base map size (world units). */
-export const TERRAIN_REEF_OUTWARD_BASE = 8;
+export const TERRAIN_REEF_OUTWARD_BASE = 0.8;
 
 /** Outward extent of beach skirt beyond reef foot at base map size. */
-export const TERRAIN_BEACH_OUTWARD_BASE = 10;
+export const TERRAIN_BEACH_OUTWARD_BASE = 1;
+
+/** Vertical drop for a skirt given its outward run and slope angle. */
+export function terrainSlopeDrop(outward: number, slopeDeg: number): number {
+  return outward * Math.tan((slopeDeg * Math.PI) / 180);
+}
+
+/** Y where reef slope meets beach — derived from reef slope angle. */
+export function terrainReefBottomY(cfg: ContinentMapConfig): number {
+  return (
+    TERRAIN_PLATFORM_Y
+    - terrainSlopeDrop(terrainReefOutward(cfg), TERRAIN_REEF_SLOPE_DEG)
+  );
+}
+
+/** Sea plane Y — beach foot after the gentle sand slope. */
+export function terrainSeaY(cfg: ContinentMapConfig): number {
+  return (
+    terrainReefBottomY(cfg)
+    - terrainSlopeDrop(terrainBeachOutward(cfg), TERRAIN_BEACH_SLOPE_DEG)
+  );
+}
+
+/** @deprecated Use terrainReefBottomY(cfg). Kept for legacy imports. */
+export const TERRAIN_REEF_BOTTOM_Y = TERRAIN_PLATFORM_Y
+  - terrainSlopeDrop(TERRAIN_REEF_OUTWARD_BASE, TERRAIN_REEF_SLOPE_DEG);
 
 /** Sea plane side length as a multiple of mapSize. */
 export const TERRAIN_SEA_EXTENT_FACTOR = 6;
@@ -236,14 +261,9 @@ export function terrainSkirtOutward(cfg: ContinentMapConfig): number {
   return terrainReefOutward(cfg) + terrainBeachOutward(cfg);
 }
 
-/** Y at the bottom of the four edge reef slopes (= sea level). */
-export function terrainSlopeBottomY(_cfg?: ContinentMapConfig): number {
-  return TERRAIN_SEA_Y;
-}
-
-/** Sea plane Y. */
-export function terrainSeaY(_cfg?: ContinentMapConfig): number {
-  return TERRAIN_SEA_Y;
+/** Y at the bottom of the four edge skirts (= sea level). */
+export function terrainSlopeBottomY(cfg: ContinentMapConfig): number {
+  return terrainSeaY(cfg);
 }
 
 /** Beach width equals buildable inset ring — derived at runtime via beachWidth(cfg). */
