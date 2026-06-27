@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { NoteData, WorldTree } from '../lib/types';
+import { scheduleContinentPreload } from '../lib/continent-preload';
 import { useWorld } from '../store';
 import Globe from './Globe';
 import MapView from './MapView';
@@ -24,21 +25,30 @@ export default function World({ tree }: Props) {
   const selectNote = useWorld((s) => s.selectNote);
   const transitioning = useWorld((s) => s.transitioning);
   const setTransitioning = useWorld((s) => s.setTransitioning);
+  const focusedContinent = useWorld((s) => s.focusedContinent);
 
   /** 由 globe 触发的待进入大陆 id（在云朵中点时实际切换） */
   const [pendingContinent, setPendingContinent] = useState<string | null>(null);
+  /** enter-map 转场：MapView 首帧就绪后才散云 */
+  const [mapReady, setMapReady] = useState(false);
 
   const handleEnterContinent = useCallback(
     (continentId: string) => {
+      const continent = tree.find((c) => c.id === continentId);
+      if (continent) {
+        scheduleContinentPreload(continent, { urgent: true });
+      }
       setPendingContinent(continentId);
+      setMapReady(false);
       setTransitioning(true);
     },
-    [setTransitioning],
+    [tree, setTransitioning],
   );
 
   const handleBack = useCallback(() => {
     if (view.kind === 'globe') return;
     setPendingContinent(null);
+    setMapReady(false);
     setTransitioning(true);
   }, [view.kind, setTransitioning]);
 
@@ -53,11 +63,23 @@ export default function World({ tree }: Props) {
   const handleTransitionDone = useCallback(() => {
     setTransitioning(false);
     setPendingContinent(null);
+    setMapReady(false);
   }, [setTransitioning]);
+
+  const handleMapReady = useCallback(() => {
+    setMapReady(true);
+  }, []);
 
   const openNote = useCallback((note: NoteData) => {
     window.location.href = `/notes/${note.slug}`;
   }, []);
+
+  // Globe 上单击聚焦大陆时，idle 预加载布局与 GLB
+  useEffect(() => {
+    if (view.kind !== 'globe' || !focusedContinent) return;
+    const continent = tree.find((c) => c.id === focusedContinent);
+    if (continent) scheduleContinentPreload(continent);
+  }, [view.kind, focusedContinent, tree]);
 
   // 从笔记页「back to continent」进入时恢复大陆视图
   useEffect(() => {
@@ -84,6 +106,9 @@ export default function World({ tree }: Props) {
       ? tree.find((c) => c.id === view.continentId) ?? null
       : null;
 
+  const enteringMap = pendingContinent !== null;
+  const readyToReveal = !enteringMap || mapReady;
+
   return (
     <div className="world-root">
       <Canvas
@@ -97,7 +122,11 @@ export default function World({ tree }: Props) {
           <Globe tree={tree} onEnter={handleEnterContinent} />
         )}
         {view.kind === 'map' && currentContinent && (
-          <MapView continent={currentContinent} onOpenNote={openNote} />
+          <MapView
+            continent={currentContinent}
+            onOpenNote={openNote}
+            onReady={enteringMap ? handleMapReady : undefined}
+          />
         )}
       </Canvas>
 
@@ -127,6 +156,7 @@ export default function World({ tree }: Props) {
 
       <CloudTransition
         active={transitioning}
+        readyToReveal={readyToReveal}
         onMidpoint={handleTransitionMid}
         onComplete={handleTransitionDone}
       />

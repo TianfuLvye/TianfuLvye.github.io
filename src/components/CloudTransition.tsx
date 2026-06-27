@@ -2,39 +2,66 @@ import { useEffect, useState } from 'react';
 
 interface Props {
   active: boolean;
+  /** When false during an enter-map transition, clouds stay covered until the map is ready. */
+  readyToReveal?: boolean;
   onMidpoint?: () => void;
   onComplete?: () => void;
 }
 
+const COVER_MS = 850;
+/** cloud-out 0.75s + max puff stagger (14 × 0.018s) */
+const REVEAL_MS = 1020;
+
 /**
  * 云朵转场：
- *   t=0    隐藏
- *   t=0.5  完全遮住屏幕（此时切换 globe ↔ map）
- *   t=1    淡出
+ *   cover   云层遮住屏幕
+ *   midpoint 切换 globe ↔ map（仍保持遮住）
+ *   reveal  目标视图就绪后淡出
  */
 export default function CloudTransition({
   active,
+  readyToReveal = true,
   onMidpoint,
   onComplete,
 }: Props) {
   const [phase, setPhase] = useState<'idle' | 'cover' | 'reveal'>('idle');
+  const [midpointReached, setMidpointReached] = useState(false);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setPhase('idle');
+      setMidpointReached(false);
+      return;
+    }
+
     setPhase('cover');
-    const t1 = window.setTimeout(() => {
+    setMidpointReached(false);
+
+    const coverTimer = window.setTimeout(() => {
+      setMidpointReached(true);
       onMidpoint?.();
-      setPhase('reveal');
-    }, 850);
-    const t2 = window.setTimeout(() => {
+    }, COVER_MS);
+
+    return () => window.clearTimeout(coverTimer);
+  }, [active, onMidpoint]);
+
+  useEffect(() => {
+    if (!active || phase !== 'cover' || !midpointReached || !readyToReveal) {
+      return;
+    }
+    setPhase('reveal');
+  }, [active, phase, midpointReached, readyToReveal]);
+
+  useEffect(() => {
+    if (phase !== 'reveal') return;
+
+    const completeTimer = window.setTimeout(() => {
       setPhase('idle');
       onComplete?.();
-    }, 1600);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
-  }, [active, onMidpoint, onComplete]);
+    }, REVEAL_MS);
+
+    return () => window.clearTimeout(completeTimer);
+  }, [phase, onComplete]);
 
   if (phase === 'idle') return null;
 

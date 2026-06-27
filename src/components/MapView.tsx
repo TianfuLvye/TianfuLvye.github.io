@@ -6,9 +6,12 @@ import { getBuilding } from '../config/building-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
 import { gridLineSegments } from '../lib/grid';
 import type { BuildingPlacement } from '../lib/building-placement';
+import {
+  getCachedContinentLayout,
+  getCachedMapConfig,
+} from '../lib/continent-preload';
 import { placeContinentLayout } from '../lib/place-continent-layout';
 import {
-  continentMapConfig,
   GRID_BUILDING_ROTATION,
   type ContinentMapConfig,
 } from '../lib/map-config';
@@ -27,17 +30,20 @@ import RoadWalkBlockedOverlay from './RoadWalkBlockedOverlay';
 interface Props {
   continent: ContinentData;
   onOpenNote: (note: NoteData) => void;
+  /** First frame drawn — used to start cloud reveal after enter transition. */
+  onReady?: () => void;
 }
 
-export default function MapView({ continent, onOpenNote }: Props) {
+export default function MapView({ continent, onOpenNote, onReady }: Props) {
   const mapConfig = useMemo(
-    () => continentMapConfig(continent.notes.length),
-    [continent.notes.length],
+    () => getCachedMapConfig(continent.id, continent.notes.length),
+    [continent.id, continent.notes.length],
   );
-  const layout = useMemo(
-    () => placeContinentLayout(continent.notes, mapConfig),
-    [continent.notes, mapConfig],
-  );
+  const layout = useMemo(() => {
+    const cached = getCachedContinentLayout(continent.id);
+    if (cached) return cached;
+    return placeContinentLayout(continent.notes, mapConfig);
+  }, [continent.id, continent.notes, mapConfig]);
   const { buildings, tagRoadSegments } = layout;
   const sortKey = useWorld((s) => s.sortKey);
   const hoveredNoteIds = useWorld((s) => s.hoveredNoteIds);
@@ -124,6 +130,7 @@ export default function MapView({ continent, onOpenNote }: Props) {
 
   return (
     <>
+      <MapReadyNotifier onReady={onReady} />
       <MapModelPreload buildings={buildings} />
       <OrthographicCamera
         makeDefault
@@ -228,6 +235,17 @@ export default function MapView({ continent, onOpenNote }: Props) {
       />
     </>
   );
+}
+
+/** Signals once after the first rendered frame (post layout effects). */
+function MapReadyNotifier({ onReady }: { onReady?: () => void }) {
+  const done = useRef(false);
+  useFrame(() => {
+    if (done.current || !onReady) return;
+    done.current = true;
+    onReady();
+  });
+  return null;
 }
 
 /* ---------- Building ---------- */
