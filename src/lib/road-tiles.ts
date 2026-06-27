@@ -1,4 +1,8 @@
 import type { RoadTileKind } from '../config/road-catalog';
+import {
+  ROAD_TILES,
+  straightRoadUrlForMask,
+} from '../config/road-catalog';
 import type { RoadSegment } from './place-roads';
 import { cellKey, parseCellKey, type GridCell } from './grid';
 import {
@@ -12,11 +16,174 @@ import {
 } from './direction';
 
 export interface RoadTileInstance {
+  /** Stable cell id for instancing and animation. */
+  id: string;
   col: number;
   row: number;
   kind: RoadTileKind;
   /** Connection bitmask (N=1, E=2, S=4, W=8). */
   mask: number;
+}
+
+export interface TagPathSet {
+  tag: string;
+  pathSet: Set<string>;
+  doorFacingByKey: Map<string, number>;
+}
+
+export function roadTileUrl(kind: RoadTileKind, mask: number): string {
+  if (kind === 'straight') return straightRoadUrlForMask(mask);
+  return ROAD_TILES[kind].url;
+}
+
+export function buildTagPathSets(
+  segments: RoadSegment[],
+  activeTags: string[],
+): Map<string, TagPathSet> {
+  const active = new Set(activeTags);
+  const byTag = new Map<string, TagPathSet>();
+
+  for (const segment of segments) {
+    if (!active.has(segment.tag)) continue;
+    let entry = byTag.get(segment.tag);
+    if (!entry) {
+      entry = {
+        tag: segment.tag,
+        pathSet: new Set<string>(),
+        doorFacingByKey: new Map<string, number>(),
+      };
+      byTag.set(segment.tag, entry);
+    }
+    for (const terminal of segment.doorTerminals) {
+      entry.doorFacingByKey.set(
+        cellKey(terminal.col, terminal.row),
+        terminal.facingMask,
+      );
+    }
+    for (const cell of segment.gridCells) {
+      entry.pathSet.add(cellKey(cell.col, cell.row));
+    }
+  }
+
+  return byTag;
+}
+
+function tileForCellKey(
+  key: string,
+  allPathCells: Set<string>,
+  doorFacingByKey: Map<string, number>,
+): RoadTileInstance | null {
+  const { col, row } = parseCellKey(key);
+  const connectivityMask = maskForCell({ col, row }, allPathCells);
+  if (connectivityMask === 0) {
+    // Isolated revealed cell (wave front) — placeholder until neighbors sync.
+    return {
+      id: key,
+      col,
+      row,
+      kind: 'straight',
+      mask: DIR_E | DIR_W,
+    };
+  }
+
+  const doorFacing = doorFacingByKey.get(key);
+  if (doorFacing !== undefined) {
+    return {
+      id: key,
+      col,
+      row,
+      kind: 'end',
+      mask: doorFacing,
+    };
+  }
+
+  const kind = pickTileKindFromMask(connectivityMask);
+  return {
+    id: key,
+    col,
+    row,
+    kind,
+    mask: connectivityMask,
+  };
+}
+
+function tilesFromPathData(
+  cellKeys: Iterable<string>,
+  allPathCells: Set<string>,
+  doorFacingByKey: Map<string, number>,
+): RoadTileInstance[] {
+  const tiles: RoadTileInstance[] = [];
+  for (const key of cellKeys) {
+    const tile = tileForCellKey(key, allPathCells, doorFacingByKey);
+    if (tile) tiles.push(tile);
+  }
+  tiles.sort((a, b) =>
+    a.col !== b.col ? a.col - b.col : a.row - b.row,
+  );
+  return tiles;
+}
+
+/** Merge tiles from union of per-tag path sets (full paths, not reveal-filtered). */
+export function mergeRoadTilesFromPathSets(
+  pathSets: Iterable<TagPathSet>,
+): RoadTileInstance[] {
+  const allPathCells = new Set<string>();
+  const doorFacingByKey = new Map<string, number>();
+  const cellKeys = new Set<string>();
+
+  for (const tps of pathSets) {
+    for (const key of tps.pathSet) {
+      allPathCells.add(key);
+      cellKeys.add(key);
+    }
+    for (const [key, facing] of tps.doorFacingByKey) {
+      if (tps.pathSet.has(key)) doorFacingByKey.set(key, facing);
+    }
+  }
+
+  return tilesFromPathData(cellKeys, allPathCells, doorFacingByKey);
+}
+
+/**
+ * Merge tiles using only cells each tag has revealed so far.
+ * Intersections upgrade progressively as multiple tags reveal the same cell.
+ */
+export function mergeRoadTilesForRevealedTags(
+  segments: RoadSegment[],
+  activeTags: string[],
+  revealedCellsByTag: Map<string, Set<string>>,
+): RoadTileInstance[] {
+  if (activeTags.length === 0) return [];
+
+  const tagPathSets = buildTagPathSets(segments, activeTags);
+  const allPathCells = new Set<string>();
+  const doorFacingByKey = new Map<string, number>();
+  const cellKeys = new Set<string>();
+
+  for (const tag of activeTags) {
+    const tps = tagPathSets.get(tag);
+    const revealed = revealedCellsByTag.get(tag);
+    if (!tps || !revealed) continue;
+
+    for (const key of revealed) {
+      if (!tps.pathSet.has(key)) continue;
+      allPathCells.add(key);
+      cellKeys.add(key);
+      const facing = tps.doorFacingByKey.get(key);
+      if (facing !== undefined) doorFacingByKey.set(key, facing);
+    }
+  }
+
+  return tilesFromPathData(cellKeys, allPathCells, doorFacingByKey);
+}
+
+export function mergeRoadTilesForTag(
+  segments: RoadSegment[],
+  tag: string,
+): RoadTileInstance[] {
+  const tps = buildTagPathSets(segments, [tag]).get(tag);
+  if (!tps) return [];
+  return mergeRoadTilesFromPathSets([tps]);
 }
 
 function directionBetween(a: GridCell, b: GridCell): number {
@@ -92,6 +259,7 @@ export function mergeActiveRoadTiles(
     const doorFacing = doorFacingByKey.get(key);
     if (doorFacing !== undefined) {
       tiles.push({
+        id: key,
         col,
         row,
         kind: 'end',
@@ -101,6 +269,7 @@ export function mergeActiveRoadTiles(
     }
 
     tiles.push({
+      id: key,
       col,
       row,
       kind: pickTileKindFromMask(connectivityMask),

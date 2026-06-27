@@ -1,5 +1,6 @@
 import { useGLTF } from '@react-three/drei';
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import type { DecorFitExtent } from '../config/decoration-catalog';
 import {
@@ -30,6 +31,8 @@ interface Props extends GltfLayoutParams {
   receiveShadow?: boolean;
   /** Instances with matching id are collapsed (scale 0) without rebuilding groups. */
   hiddenIds?: ReadonlySet<string>;
+  /** Per-instance Y offsets updated every frame (length = instances.length). */
+  yOffsetsRef?: MutableRefObject<Float32Array | null>;
 }
 
 function collectMeshParts(scene: THREE.Object3D): MeshPart[] {
@@ -63,6 +66,7 @@ function InstancedMeshPart({
   castShadow = false,
   receiveShadow = false,
   hiddenIds,
+  yOffsetsRef,
 }: {
   part: MeshPart;
   instances: GltfInstanceTransform[];
@@ -70,8 +74,10 @@ function InstancedMeshPart({
   castShadow?: boolean;
   receiveShadow?: boolean;
   hiddenIds?: ReadonlySet<string>;
+  yOffsetsRef?: MutableRefObject<Float32Array | null>;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
+  const layoutReadyRef = useRef(false);
   const temp = useMemo(
     () => ({
       pos: new THREE.Vector3(),
@@ -83,7 +89,7 @@ function InstancedMeshPart({
     [],
   );
 
-  useLayoutEffect(() => {
+  const writeInstanceMatrices = (yOffsets: Float32Array | null) => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
@@ -97,7 +103,12 @@ function InstancedMeshPart({
         continue;
       }
       const s = inst.scale ?? 1;
-      temp.pos.set(inst.position[0], inst.position[1], inst.position[2]);
+      const yExtra = yOffsets?.[i] ?? 0;
+      temp.pos.set(
+        inst.position[0],
+        inst.position[1] + yExtra,
+        inst.position[2],
+      );
       temp.quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), inst.rotationY);
       temp.scale.set(s, s, s);
       temp.matrix.compose(temp.pos, temp.quat, temp.scale);
@@ -107,7 +118,18 @@ function InstancedMeshPart({
 
     mesh.instanceMatrix.needsUpdate = true;
     mesh.count = instances.length;
-  }, [instances, layoutMatrix, part, temp, hiddenIds]);
+  };
+
+  useLayoutEffect(() => {
+    layoutReadyRef.current = false;
+    writeInstanceMatrices(yOffsetsRef?.current ?? null);
+    layoutReadyRef.current = true;
+  }, [instances, layoutMatrix, part, temp, hiddenIds, yOffsetsRef]);
+
+  useFrame(() => {
+    if (!yOffsetsRef?.current || !layoutReadyRef.current) return;
+    writeInstanceMatrices(yOffsetsRef.current);
+  });
 
   if (instances.length === 0) return null;
 
@@ -135,6 +157,7 @@ export default function InstancedGltfMeshes({
   castShadow = false,
   receiveShadow = false,
   hiddenIds,
+  yOffsetsRef,
 }: Props) {
   const { scene } = useGLTF(url);
 
@@ -187,6 +210,7 @@ export default function InstancedGltfMeshes({
           castShadow={castShadow}
           receiveShadow={receiveShadow}
           hiddenIds={hiddenIds}
+          yOffsetsRef={yOffsetsRef}
         />
       ))}
     </group>
