@@ -19,6 +19,7 @@ import {
   roadTileUrl,
   type RoadTileInstance,
 } from '../lib/road-tiles';
+import { roadDecorClearanceCells } from '../lib/road-clearance';
 import {
   APPEAR_DURATION_S,
   computeRoadRevealDistancesForPathSet,
@@ -247,7 +248,18 @@ function RoadRevealAnimator({
   const cellStatesRef = useRef(new Map<string, LiveCell>());
   const prevActiveTagsRef = useRef<string[]>([]);
   const renderGroupsRef = useRef(renderGroups);
+  const prevClearanceSigRef = useRef('');
   renderGroupsRef.current = renderGroups;
+  const setRoadClearanceCellKeys = useWorld((s) => s.setRoadClearanceCellKeys);
+
+  const publishDecorClearance = () => {
+    const roadKeys = [...cellStatesRef.current.keys()];
+    const keys = [...roadDecorClearanceCells(roadKeys)].sort();
+    const sig = keys.join('|');
+    if (sig === prevClearanceSigRef.current) return;
+    prevClearanceSigRef.current = sig;
+    setRoadClearanceCellKeys(keys);
+  };
 
   const rebuild = () => {
     setRenderGroups(
@@ -415,6 +427,8 @@ function RoadRevealAnimator({
       }
       rebuild();
     }
+
+    publishDecorClearance();
   });
 
   return null;

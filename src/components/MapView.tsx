@@ -4,7 +4,8 @@ import { OrthographicCamera, MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { getBuilding } from '../config/building-catalog';
 import type { ContinentData, NoteData } from '../lib/types';
-import { gridLineSegments } from '../lib/grid';
+import { cellKey, gridLineSegments } from '../lib/grid';
+import { worldToCell } from '../lib/forest-zones';
 import type { BuildingPlacement } from '../lib/building-placement';
 import {
   getCachedContinentLayout,
@@ -521,6 +522,8 @@ function Decorations({
   cfg: ContinentMapConfig;
   buildings: BuildingPlacement[];
 }) {
+  const roadClearanceCellKeys = useWorld((s) => s.roadClearanceCellKeys);
+
   const items = useMemo(
     () =>
       placeDecorations({
@@ -531,5 +534,19 @@ function Decorations({
     [continentId, cfg, buildings],
   );
 
-  return <InstancedDecorations items={items} />;
+  const clearanceSet = useMemo(
+    () => new Set(roadClearanceCellKeys),
+    [roadClearanceCellKeys],
+  );
+
+  const visibleItems = useMemo(() => {
+    if (clearanceSet.size === 0) return items;
+    return items.filter((item) => {
+      const cell = worldToCell(cfg, item.position[0], item.position[2]);
+      if (!cell) return true;
+      return !clearanceSet.has(cellKey(cell.col, cell.row));
+    });
+  }, [items, clearanceSet, cfg]);
+
+  return <InstancedDecorations items={visibleItems} />;
 }

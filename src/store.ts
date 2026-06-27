@@ -27,6 +27,8 @@ interface WorldStore {
   roadDebug: RoadDebugSettings;
   /** 是否显示马路调试面板 */
   showRoadDebugPanel: boolean;
+  /** 马路显示时需隐藏装饰物的网格格（含路旁一圈） */
+  roadClearanceCellKeys: string[];
 
   enterMap: (continentId: string) => void;
   exitToGlobe: () => void;
@@ -43,6 +45,7 @@ interface WorldStore {
   setRoadDebug: (next: RoadDebugSettings) => void;
   resetRoadDebug: () => void;
   setShowRoadDebugPanel: (v: boolean) => void;
+  setRoadClearanceCellKeys: (keys: string[]) => void;
 }
 
 export const useWorld = create<WorldStore>((set) => ({
@@ -57,6 +60,7 @@ export const useWorld = create<WorldStore>((set) => ({
   showRoadWalkBlockedDebug: false,
   roadDebug: DEFAULT_ROAD_DEBUG,
   showRoadDebugPanel: true,
+  roadClearanceCellKeys: [],
 
   enterMap: (continentId) =>
     set({
@@ -68,6 +72,7 @@ export const useWorld = create<WorldStore>((set) => ({
       focusedContinent: null,
       showGridDebug: false,
       showRoadWalkBlockedDebug: false,
+      roadClearanceCellKeys: [],
     }),
   exitToGlobe: () =>
     set({
@@ -78,6 +83,7 @@ export const useWorld = create<WorldStore>((set) => ({
       sortKey: 'default',
       showGridDebug: false,
       showRoadWalkBlockedDebug: false,
+      roadClearanceCellKeys: [],
     }),
   focusContinent: (id) => set({ focusedContinent: id }),
   selectNote: (note) => set({ selectedNote: note }),
@@ -97,4 +103,5 @@ export const useWorld = create<WorldStore>((set) => ({
   setRoadDebug: (next) => set({ roadDebug: next }),
   resetRoadDebug: () => set({ roadDebug: DEFAULT_ROAD_DEBUG }),
   setShowRoadDebugPanel: (v) => set({ showRoadDebugPanel: v }),
+  setRoadClearanceCellKeys: (keys) => set({ roadClearanceCellKeys: keys }),
 }));
